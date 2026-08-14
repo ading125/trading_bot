@@ -1,7 +1,7 @@
 # Project Outline
 
 **Status:** Approved high-level design<br>
-**Last updated:** 2026-08-03
+**Last updated:** 2026-08-06
 
 ## System flow
 
@@ -40,14 +40,15 @@ flowchart LR
 
 | Workstream | Purpose | Version-one deliverable |
 |---|---|---|
-| Source ingestion | Collect timely evidence without duplicating work | CivicTracker JSON, Yahoo news/earnings, S&P 500, OHLCV |
-| Entity resolution | Convert text mentions into verified public tickers | Alias registry, `yfinance` lookup, confidence/manual-review states |
+| Source ingestion | Collect timely evidence without duplicating work | Social posts, news, earnings, universe, and OHLCV through replaceable capability adapters |
+| Entity resolution | Convert text mentions into verified public tickers | Alias registry, configured symbol lookup, confidence/manual-review states |
 | AI research | Assess evidence-based growth potential | Structured score, catalysts, risks, uncertainty, citations |
 | Technical strategy | Decide whether a trade setup exists | Trusted Python plugin interface and baseline strategies |
 | Backtesting | Determine whether rules have a durable edge | Event-driven, point-in-time portfolio and trade simulation |
 | Intraday monitoring | Detect new evidence and completed-bar triggers | Scheduled polling, active shortlist, alert lifecycle |
 | Dashboard | Make decisions inspectable | Sources, candidates, charts, strategy reasons, backtests |
 | Security/operations | Keep the local tool private and recoverable | Docker hardening, encrypted credentials, backups, health checks |
+| Provider operations | Change APIs without changing business logic | Registry, manifests, connection tests, capability health, provenance, and controlled fallback |
 
 ## Operating cycles
 

@@ -1,7 +1,7 @@
 # AI Analysis
 
 **Status:** Version-one AI contract<br>
-**Last updated:** 2026-08-03
+**Last updated:** 2026-08-06
 
 ## Role
 
@@ -58,6 +58,14 @@ The provider adapter must validate a response equivalent to:
 
 Scores use a documented 0–100 rubric. Valid decisions are `qualify`, `investigate`, `reject`, and `insufficient_evidence`. Every material statement must reference supplied source or feature IDs.
 
+## LLM provider contract
+
+Prompt construction, evidence limits, schema validation, citation checks, caching, and qualification live outside provider adapters. An `LLMProvider` translates the canonical request and response plus normalized errors for a specific hosted or local service.
+
+At connection test and startup, the adapter reports model availability, JSON Schema or structured-output support, context limit, token accounting, authentication state, rate/quota state, and the provider's configured retention policy. Missing optional features are handled explicitly; required structured output must be emulated safely and validated or the provider is rejected for this capability.
+
+The configured provider can be changed without altering prompts or analysis code. A fallback receives the same evidence, prompt version, and output schema. The assessment stores the actual provider/model, adapter version, fallback reason, and usage metadata. Cache keys include evidence hash, prompt/schema version, provider, and model so switching providers never reuses an incompatible assessment.
+
 ## Guardrails
 
 - Reject unknown or unverified tickers.
@@ -75,7 +83,7 @@ AI qualification is a research gate, not a trade signal. The configurable thresh
 
 ## Prospective evaluation
 
-Save the exact model/provider identifier, prompt version, normalized input, input hash, structured output, timestamp, and selected sources for every assessment. Calculate later 5-, 10-, and 20-session outcomes without editing the original decision.
+Save the exact model/provider identifier, adapter version, prompt/schema version, normalized input, input hash, structured output, timestamp, failover reason, and selected sources for every assessment. Calculate later 5-, 10-, and 20-session outcomes without editing the original decision.
 
 Dashboard reporting must separate:
 

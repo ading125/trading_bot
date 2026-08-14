@@ -1,7 +1,7 @@
 # Data Pipeline
 
 **Status:** Version-one data contract<br>
-**Last updated:** 2026-08-03
+**Last updated:** 2026-08-06
 
 ## CivicTracker collection
 
@@ -50,6 +50,16 @@ Operational rules:
 - Store whether `repair=True` was used and never silently overwrite accepted history with repaired values.
 - Archive intraday bars locally from day one because Yahoo intraday retrieval does not provide unlimited history.
 
+## Canonical provider contracts
+
+Adapters normalize bars, corporate actions, symbols, news, earnings, estimates, and social posts into small canonical records. Every record carries the provider ID, provider record/request ID when available, event or publication time, known-available time, retrieval time, raw payload hash/reference, normalization schema version, and adapter version.
+
+Immutable raw responses are retained subject to source terms and retention limits so a corrected adapter can re-normalize old data without re-fetching it. Provider-specific optional fields live in validated extension data and cannot leak into strategy assumptions. Caches, cursors, throttles, and idempotency keys include provider ID plus request identity.
+
+Entity resolution uses a `SymbolLookupProvider`; it does not import `yfinance`. Adding a provider requires an adapter, manifest, canonical mappings, recorded fixtures, and shared contract tests—not changes to entity resolution, scoring, strategy, backtesting, or presentation code.
+
+Price histories from different providers are not appended or compared as if identical. Adjustment, corporate-action, timestamp, and session semantics must pass an explicit reconciliation and lineage job before a dataset can change providers. Existing backtests remain pinned to their original dataset lineage.
+
 ## Candidate sources
 
 Candidate membership is a union with source attribution:
@@ -69,7 +79,7 @@ Resolution pipeline:
 2. Extract possible organization/company names using deterministic aliases plus bounded AI/entity extraction.
 3. Reject obvious people, places, agencies, political bodies, and generic industries.
 4. Resolve known aliases from a versioned registry.
-5. Query `yfinance` Search/Lookup for unresolved names.
+5. Query the configured `SymbolLookupProvider` for unresolved names (`yfinance` initially).
 6. Require a US-listed equity match and validate exchange, quote type, and active status.
 7. Store confidence and alternatives; route ambiguity below threshold to manual review.
 
@@ -98,3 +108,4 @@ Partitioned Parquet datasets should store canonical daily/intraday bars and deri
 - Earnings revisions and news without reliable historical availability are excluded from historical strategy tests.
 - S&P 500 membership snapshots start when collection begins; older tests using today's constituents must be labeled survivorship-biased.
 - Raw source hashes, dataset versions, code commits, configuration hashes, and run IDs make results reproducible.
+- Provider IDs, adapter versions, schema versions, capabilities, and failover events are part of dataset and run provenance.

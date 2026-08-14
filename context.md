@@ -1,7 +1,7 @@
 # Project Context
 
 **Status:** Approved product and architecture direction<br>
-**Last updated:** 2026-08-03
+**Last updated:** 2026-08-06
 
 ## Purpose
 
@@ -40,6 +40,9 @@ The tool separates two questions that must not be conflated:
 - An optional Windows launcher may start Docker Desktop/Compose and open the dashboard.
 - `yfinance` is the initial market, news, and earnings-access library.
 - CivicTracker data will use its JSON feed first; `.social-post` HTML parsing is fallback behavior only.
+- Every external integration is selected by capability through validated configuration. Initial providers are defaults, not dependencies of business logic.
+- Changing a packaged provider must require no changes to entity resolution, AI analysis, strategies, backtests, or dashboard code.
+- Provider selection is pinned for each run. Provider ID, adapter/model version, capability, schema version, and configuration hash are stored with results so a switch cannot silently alter an existing experiment.
 - The CivicTracker member UUID initially monitored is `3094abf7-4a95-4b8d-8c8d-af7d1c3747a1`.
 - Previously seen CivicTracker posts must never be reprocessed as new posts.
 - AI analysis is source-bounded and must not fabricate unsupported company claims.
@@ -65,6 +68,7 @@ The current environment has a Ryzen 5 3600, 12 logical CPUs, approximately 8 GB 
 - Backtests prevent look-ahead, include costs, compare against SPY, and disclose survivorship bias.
 - The application can validly produce no recommendation when evidence or setup quality is weak.
 - A complete deterministic report remains available if the LLM is unavailable.
+- A configured provider can be replaced and connection-tested through local settings without rebuilding the image or editing application code.
 - No API key, unlock secret, or private configuration appears in source, logs, reports, or container metadata.
 
 ## Explicitly out of scope for version one

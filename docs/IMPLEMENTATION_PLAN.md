@@ -1,7 +1,7 @@
 # Implementation Plan
 
 **Status:** Ready for implementation planning<br>
-**Last updated:** 2026-08-03
+**Last updated:** 2026-08-06
 
 ## Guiding approach
 
@@ -24,7 +24,23 @@ Completion criteria:
 - Recreating the container preserves volume state.
 - Default service is unreachable through non-loopback host interfaces.
 
-## Milestone 2 — CivicTracker vertical slice
+## Milestone 2 — Provider framework
+
+Deliverables:
+
+- Narrow provider protocols, canonical request/response/error models, `ProviderRegistry`, and `ProviderManifest`.
+- Validated per-capability selection, encrypted credential references, capability discovery, connection tests, health status, and controlled fallback.
+- Recorded fixture providers for market data, symbol lookup, news, earnings, social posts, and structured LLM analysis.
+- Shared adapter contract tests for schema/error mapping, timezone/session and adjustment semantics, pagination/idempotency, quotas/rate limits, and structured AI output.
+
+Completion criteria:
+
+- A fixture provider can replace another through configuration alone; business services, strategies, backtests, and dashboard views remain unchanged.
+- Provider choice is pinned within a run and all records preserve provider, adapter, schema, dataset-lineage, and fallback provenance.
+- An unsupported or unhealthy capability degrades explicitly without disabling unrelated deterministic functions.
+- Provider SDK imports outside adapter packages fail an architectural test.
+
+## Milestone 3 — CivicTracker vertical slice
 
 Deliverables:
 
@@ -40,7 +56,7 @@ Completion criteria:
 - The provider stops paging at a known boundary.
 - JSON and fallback parser fixtures normalize into the same canonical schema.
 
-## Milestone 3 — Yahoo market and event data
+## Milestone 4 — Yahoo market and event data
 
 Deliverables:
 
@@ -56,7 +72,7 @@ Completion criteria:
 - Partial/malformed responses cannot publish fresh signals.
 - Daily and intraday timestamps preserve session/timezone semantics.
 
-## Milestone 4 — Company resolution and candidate registry
+## Milestone 5 — Company resolution and candidate registry
 
 Deliverables:
 
@@ -72,7 +88,7 @@ Completion criteria:
 - Ambiguous company names cannot silently select a ticker.
 - AI-returned unknown tickers fail validation.
 
-## Milestone 5 — AI growth analysis
+## Milestone 6 — AI growth analysis
 
 Deliverables:
 
@@ -88,7 +104,7 @@ Completion criteria:
 - Political praise alone cannot qualify a company without other required evidence.
 - AI failure leaves deterministic application functions available.
 
-## Milestone 6 — Strategy framework and baseline research
+## Milestone 7 — Strategy framework and baseline research
 
 Deliverables:
 
@@ -104,7 +120,7 @@ Completion criteria:
 - Forming and confirmed setups respond correctly to completed-bar updates and stale data.
 - No strategy is labeled validated merely because implementation tests pass.
 
-## Milestone 7 — Backtester and research acceptance
+## Milestone 8 — Backtester and research acceptance
 
 Deliverables:
 
@@ -120,11 +136,12 @@ Completion criteria:
 - Same-close execution is impossible for close-derived signals.
 - Parameter-stability and out-of-sample reports are produced before a baseline may be enabled for current alerts.
 
-## Milestone 8 — Intraday dashboard and operations
+## Milestone 9 — Intraday dashboard and operations
 
 Deliverables:
 
 - Candidate queue, AI evidence, technical setups, alert states, charts, source freshness, and run history.
+- Provider settings and health view showing selection, supported capabilities, last success, freshness, latency, sanitized quota state, schema/contract status, and fallback activity.
 - Market-calendar-aware schedules for CivicTracker, broad/active news, earnings, price updates, after-close reports, and prospective outcome updates.
 - Manual refresh controls with locking and rate protection.
 - Encrypted backup/restore, sanitized diagnostics, and optional Windows launcher.
@@ -139,7 +156,7 @@ Completion criteria:
 ## Test layers
 
 - **Unit:** normalization, hashes, aliases, indicators, strategy states, costs, calendars, and metrics.
-- **Fixture integration:** CivicTracker JSON/HTML, Yahoo responses, LLM schemas, and database migrations.
+- **Fixture integration:** CivicTracker JSON/HTML, Yahoo responses, LLM schemas, provider contract suites, provider-switch lineage, raw-payload re-normalization, and database migrations.
 - **Optional live contract:** detect upstream response changes without modifying accepted production history.
 - **Property/invariant:** OHLC rules, point-in-time access, capital reconciliation, uniqueness, and idempotency.
 - **Security:** secret scans, prompt injection, output escaping, CSRF, loopback binding, and non-root container behavior.

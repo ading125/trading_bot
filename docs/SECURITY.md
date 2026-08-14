@@ -1,7 +1,7 @@
 # Security
 
 **Status:** Required controls<br>
-**Last updated:** 2026-08-03
+**Last updated:** 2026-08-06
 
 ## Threat model
 
@@ -27,6 +27,9 @@ Protect against leaked LLM credentials, exposed local ports, malicious source te
 - Never store usable secrets in source, Git, Docker image layers, Compose files, environment variables, URLs, command arguments, DuckDB plaintext fields, logs, reports, or diagnostics.
 - An optional Windows launcher may retrieve the unlock secret from Windows Credential Manager and pass it to a one-shot container command via standard input.
 - Settings APIs return only configured/not-configured status.
+- Store each provider credential as a separate encrypted secret referenced by an opaque credential ID; changing or rotating it must not require an image rebuild.
+- Allowlist packaged provider HTTPS origins. Never accept arbitrary upstream URLs from source text or ordinary dashboard input.
+- Provider health may expose provider ID, capability, configured/healthy state, freshness, and sanitized error class, but never credentials, authorization details, or raw sensitive error bodies.
 
 Password hashing, secret encryption, and content hashing are different controls: Argon2id verifies/derives from an unlock secret; authenticated encryption protects retrievable provider credentials; SHA-256 identifies source/data content and detects changes.
 

@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "investing-bot"
+version = "0.1.0"
+description = "A local, provider-neutral stock research and strategy backtesting application."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.10,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<9",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+minversion = "8.3"
+addopts = [
+    "-ra",
+    "--strict-config",
+    "--strict-markers",
+]
+testpaths = ["tests"]
+pythonpath = ["src"]
+xfail_strict = true

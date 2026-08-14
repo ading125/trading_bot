@@ -1,7 +1,7 @@
 # AI Working Prompt and Decision Log
 
 **Status:** Active<br>
-**Last updated:** 2026-08-03
+**Last updated:** 2026-08-14
 
 ## AI Working Prompt
 
@@ -9,9 +9,11 @@ You are the senior AI collaborator for Investing Bot. Act as a top-level stock t
 
 ### Subagent Delegation
 
-For every distinct project task, spawn at least one fresh subagent before beginning substantive work. Give the subagent a concrete, bounded objective, relevant repository paths, applicable project decisions, constraints, expected deliverables, and verification criteria. Decompose broad requests into independent subtasks only when their outputs can be integrated cleanly; do not create vague, overlapping, recursive, or unbounded delegation chains.
+For every distinct project task, spawn at least one fresh subagent before beginning substantive work. For broad implementation work, assign a fresh subagent to each clearly separable file, external integration, or architectural aspect. Give every subagent a concrete, bounded objective, explicit and non-overlapping ownership, relevant repository paths, applicable project decisions, constraints, expected deliverables, and verification criteria.
 
-The primary agent remains responsible for coordinating the work, resolving conflicts, reviewing all returned results, integrating changes, and performing final end-to-end verification. Never accept a subagent's conclusions or edits without checking them against `context.md`, this decision log, the implementation documents, the current repository state, and the user's latest instructions.
+Schedule independent assignments in bounded waves that respect the available concurrency limit. Integrate and review one wave before dispatching dependent work so that later agents receive the current cross-file contracts and repository state. Trivial, tightly coupled files may be grouped under one subagent when separate ownership would create artificial boundaries, duplicated work, or poorer coherence. Do not create vague, overlapping, recursive, or unbounded delegation chains.
+
+The primary agent remains responsible for defining and preserving cross-file contracts, coordinating the work, resolving conflicts, reviewing all returned results, integrating changes, and performing final end-to-end verification. It also retains direct responsibility for security review and for explaining the implementation to the user as a learning exercise. Never accept a subagent's conclusions or edits without checking them against `context.md`, this decision log, the implementation documents, the current repository state, and the user's latest instructions.
 
 Subagents should not spawn additional agents unless explicitly requested by the user or required for a clearly separable subtask, and delegation depth must remain bounded. If subagents are unavailable, fail to complete the task, or return inadequate work, continue directly when safe; otherwise report the precise blocker. Delegation never transfers responsibility for correctness, security, testing, or the final response.
 
@@ -109,6 +111,23 @@ The following sections record settled decisions and their reasoning. They are no
 - The AI will receive a curated structured evidence package containing only relevant current news, earnings information, political-policy mentions, and computed market features.
 - If the project later accumulates enough clean historical cases, analogous-case retrieval may be reconsidered, but it is not required for the product to succeed.
 
+## 2026-08-06 — Provider switching
+
+- Required every external API to be replaceable per capability through validated local configuration, without editing business logic or rebuilding the image.
+- Kept `yfinance` and CivicTracker JSON as initial adapters rather than permanent dependencies.
+- Required narrow provider contracts, a packaged provider registry, capability discovery, connection tests, normalized records, provider-scoped encrypted credentials, and shared contract tests.
+- Prohibited provider SDK imports in entity resolution, evidence building, AI analysis, strategy, backtesting, and presentation layers.
+- Required provider selection to remain fixed within a run and every result to retain the actual provider, adapter/model version, schema version, and failover history.
+- Allowed ordered fallbacks for explicitly compatible capabilities, but prohibited silent mid-run switching or untracked blending of datasets from different providers.
+
+## 2026-08-07 — File and integration delegation
+
+- Required broad project work to assign a fresh subagent to each clearly separable file, external integration, or architectural aspect.
+- Required assignments to have bounded scope and non-overlapping ownership, with independent work dispatched in waves that respect the available concurrency limit.
+- Preserved the requirement to use at least one fresh subagent for every distinct project task.
+- Allowed trivial, tightly coupled files to be grouped when splitting them would harm coherence or create unnecessary coordination overhead.
+- Kept the primary agent responsible for cross-file contracts, security, teaching explanations, integration, review of subagent work, and final end-to-end verification.
+
 ## Current assumptions to validate experimentally
 
 - The first baseline entry/exit algorithm should be simple, explainable, and parameterized; trend-pullback and breakout variants are leading candidates.
@@ -119,3 +138,15 @@ The following sections record settled decisions and their reasoning. They are no
 ## Open decisions
 
 No decision blocks building the ingestion, storage, AI-analysis, strategy-plugin, and backtest frameworks. Before calling entry/exit output production-ready, the baseline strategy family and its parameter acceptance criteria must be validated through research.
+
+## Continuation Prompt
+
+Please create a comprehensive project summary that would allow another AI assistant with no prior context to continue this development work seamlessly. Include:
+
+- The project's purpose and core functionality
+- Key technologies, frameworks, and libraries we've used
+- The current architecture and component structure
+- Implementation details of major features completed so far
+- Known issues, limitations, or technical debt
+- Immediate next steps and future development plans
+- Any critical design decisions or tradeoffs made

@@ -1,7 +1,7 @@
 # Architecture
 
 **Status:** Proposed implementation architecture<br>
-**Last updated:** 2026-08-03
+**Last updated:** 2026-08-06
 
 ## Components
 
@@ -44,6 +44,34 @@ flowchart TB
 
 Source adapters return canonical records and never write strategy outputs directly. The AI service receives evidence records and never fetches arbitrary URLs. Strategies receive immutable, time-bounded market frames and cannot call the network, LLM, or filesystem. The backtester controls the simulated clock and exposes only information available at each timestamp.
 
+## Provider subsystem
+
+External services are replaceable per capability, not through one monolithic vendor interface. Narrow protocols cover daily bars, intraday bars, quotes, corporate actions, symbol lookup, news, earnings calendars/results/estimates, cursor-based social posts, and structured LLM analysis. Business services depend only on these protocols and canonical domain models; provider SDKs may be imported only inside their adapters.
+
+A `ProviderRegistry` contains explicitly packaged provider factories. Each exposes a `ProviderManifest` with a stable provider ID, adapter version, authentication requirements, supported capabilities, intervals and historical coverage, rate-limit metadata, canonical schema versions, and optional features. Arbitrary provider code is never loaded from `/data` or from a dashboard-supplied path.
+
+Provider selection is validated at startup and may be changed through the local settings UI or configuration without changing application code or rebuilding the image. A representative configuration is:
+
+```json
+{
+  "providers": {
+    "daily_bars": {"primary": "yfinance", "fallbacks": []},
+    "intraday_bars": {"primary": "yfinance", "fallbacks": []},
+    "symbol_lookup": {"primary": "yfinance", "fallbacks": []},
+    "news": {"primary": "yfinance", "fallbacks": []},
+    "earnings": {"primary": "yfinance", "fallbacks": []},
+    "social_posts": {"primary": "civictracker_json", "fallbacks": ["civictracker_html"]},
+    "llm": {"primary": "groq", "fallbacks": ["cloudflare"]}
+  }
+}
+```
+
+The names above identify initial or illustrative adapters, not hard-coded dependencies. Configuration references encrypted credential IDs; secrets do not appear in the file. The settings screen can test a provider, show supported capabilities, and activate it after validation.
+
+Optional capabilities are feature-gated rather than forced into a lowest-common-denominator API. For example, analyst revisions or streaming quotes can be available from one adapter while ordinary bars come from another. The UI and pipeline distinguish `unsupported`, `temporarily_unavailable`, `stale`, and `missing`.
+
+Provider choice is pinned for the lifetime of each job, analysis, or backtest. Ordered failover may occur only before a unit of work begins or through an explicitly recorded retry after transport failure, quota exhaustion, authentication failure, schema incompatibility, staleness, or an unsupported capability. The system records the trigger and actual provider used, and never silently blends price histories or switches providers halfway through a run.
+
 ## Job model
 
 - Use a single scheduler process and a persistent job/run table.
@@ -63,6 +91,7 @@ Versioned endpoints should cover:
 - Strategy registry, parameter sets, and backtest requests/results.
 - Manual ingestion and analysis triggers.
 - Settings presence/status without ever returning stored secret values.
+- Provider registry, capability/health status, connection tests, selection, and explicit fallback activity.
 
 All state-changing endpoints require an authenticated local session, same-origin requests, and CSRF validation.
 
@@ -86,3 +115,4 @@ All state-changing endpoints require an authenticated local session, same-origin
 - **Price stream disconnected:** mark live prices stale, reconnect with backoff, and avoid new confirmations until a complete bar is rebuilt.
 - **Migration mismatch:** fail readiness and leave stored data untouched.
 - **Backtest failure:** retain prior results and the full failed run record.
+- **One provider unavailable:** mark only its capabilities degraded; unrelated deterministic functions remain ready.

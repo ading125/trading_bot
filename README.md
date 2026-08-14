@@ -1,7 +1,7 @@
 # Investing Bot
 
 **Status:** Planning<br>
-**Last updated:** 2026-08-03
+**Last updated:** 2026-08-06
 
 Investing Bot is a private, locally hosted stock-research tool. It discovers public companies from current news, earnings activity, the S&P 500, and selected political-policy sources; uses an AI model to evaluate growth potential; and passes qualified companies to a deterministic, backtested strategy that calculates potential entries, exits, and invalidation levels.
 
@@ -42,6 +42,7 @@ RAG, a vector database, local LLM training, live order execution, short selling,
 - `yfinance` for initial Yahoo Finance data access
 - CivicTracker's public JSON feed for selected executive social posts
 - Provider-neutral hosted LLM adapter
+- Per-capability provider registry and local settings so data and AI APIs can be changed without business-logic edits or an image rebuild
 - Docker Compose with named-volume persistence and loopback-only networking
 
 See [Project outline](docs/PROJECT_OUTLINE.md) for the complete flow and [Implementation plan](docs/IMPLEMENTATION_PLAN.md) for the recommended build order.
