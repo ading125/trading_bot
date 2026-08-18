@@ -1,13 +1,20 @@
 # Implementation Plan
 
-**Status:** Ready for implementation planning<br>
-**Last updated:** 2026-08-06
+**Status:** Milestone 1 implemented; Docker runtime acceptance checks pending<br>
+**Last updated:** 2026-08-14
 
 ## Guiding approach
 
 Build the smallest end-to-end research path first, then widen sources and sophistication. Each milestone must leave a runnable, tested system; avoid implementing AI, strategy tuning, and a full dashboard simultaneously.
 
 ## Milestone 1 — Project and container foundation
+
+Implementation status (2026-08-14): application code, migrations, persistent
+job/run records and leases, dependency locks, health/readiness routes, dashboard
+shell, Dockerfile, Compose hardening, and automated foundation tests are in
+place. The local environment does not provide Docker, so image build, clean
+volume startup, volume recreation, and host-network reachability still require
+runtime verification before this milestone is marked complete.
 
 Deliverables:
 

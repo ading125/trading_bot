@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=75"]
+requires = ["setuptools==83.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,16 +9,33 @@ description = "A local, provider-neutral stock research and strategy backtesting
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "pydantic>=2.10,<3",
+    "duckdb>=1.5.4,<1.6",
+    "fastapi>=0.139.2,<0.140",
+    "jinja2>=3.1.6,<4",
+    "pydantic>=2.13.4,<3",
+    "pydantic-settings>=2.14.2,<3",
+    "pytz>=2025.2,<2027",
+    "uvicorn>=0.51,<0.52",
 ]
 
 [project.optional-dependencies]
 dev = [
+    "httpx2>=2.9,<3",
     "pytest>=8.3,<9",
 ]
 
+[project.scripts]
+investing-bot = "investing_bot.__main__:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+investing_bot = [
+    "db/migrations/*.sql",
+    "web/static/*.css",
+    "web/templates/*.html",
+]
 
 [tool.pytest.ini_options]
 minversion = "8.3"

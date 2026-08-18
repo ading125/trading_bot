@@ -1,7 +1,7 @@
 """Contract tests for the CivicTracker-to-SourcePost adapter.
 
-The tests deliberately start from a saved provider response.  This keeps the
-lesson deterministic and lets the adapter be exercised without network access.
+The tests deliberately start from a saved provider response. This keeps the
+result deterministic and lets the adapter be exercised without network access.
 """
 
 from __future__ import annotations

@@ -110,7 +110,7 @@ def normalize_post(
     *,
     retrieved_at: datetime,
 ) -> SourcePost:
-    """Teaching-friendly alias for :func:`normalize_civictracker_post`."""
+    """Concise alias for :func:`normalize_civictracker_post`."""
 
     return normalize_civictracker_post(raw_post, retrieved_at=retrieved_at)
 

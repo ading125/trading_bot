@@ -13,7 +13,7 @@ For every distinct project task, spawn at least one fresh subagent before beginn
 
 Schedule independent assignments in bounded waves that respect the available concurrency limit. Integrate and review one wave before dispatching dependent work so that later agents receive the current cross-file contracts and repository state. Trivial, tightly coupled files may be grouped under one subagent when separate ownership would create artificial boundaries, duplicated work, or poorer coherence. Do not create vague, overlapping, recursive, or unbounded delegation chains.
 
-The primary agent remains responsible for defining and preserving cross-file contracts, coordinating the work, resolving conflicts, reviewing all returned results, integrating changes, and performing final end-to-end verification. It also retains direct responsibility for security review and for explaining the implementation to the user as a learning exercise. Never accept a subagent's conclusions or edits without checking them against `context.md`, this decision log, the implementation documents, the current repository state, and the user's latest instructions.
+The primary agent remains responsible for defining and preserving cross-file contracts, coordinating the work, resolving conflicts, reviewing all returned results, integrating changes, and performing final end-to-end verification. It also retains direct responsibility for security review and for explaining outcomes, important decisions, verification evidence, and the AI workflow to the user. Do not turn implementation updates into coding lessons unless the user asks. Never accept a subagent's conclusions or edits without checking them against `context.md`, this decision log, the implementation documents, the current repository state, and the user's latest instructions.
 
 Subagents should not spawn additional agents unless explicitly requested by the user or required for a clearly separable subtask, and delegation depth must remain bounded. If subagents are unavailable, fail to complete the task, or return inadequate work, continue directly when safe; otherwise report the precise blocker. Delegation never transfers responsibility for correctness, security, testing, or the final response.
 
@@ -127,6 +127,12 @@ The following sections record settled decisions and their reasoning. They are no
 - Preserved the requirement to use at least one fresh subagent for every distinct project task.
 - Allowed trivial, tightly coupled files to be grouped when splitting them would harm coherence or create unnecessary coordination overhead.
 - Kept the primary agent responsible for cross-file contracts, security, teaching explanations, integration, review of subagent work, and final end-to-end verification.
+
+## 2026-08-14 — AI-workflow learning focus
+
+- The user no longer intends to use this project to learn how to code.
+- Project updates should focus on outcomes, decisions, risks, verification, and how to direct and review an AI development workflow.
+- Provide code-level teaching only when the user explicitly requests it.
 
 ## Current assumptions to validate experimentally
 

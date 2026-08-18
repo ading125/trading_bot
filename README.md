@@ -1,7 +1,7 @@
 # Investing Bot
 
-**Status:** Planning<br>
-**Last updated:** 2026-08-06
+**Status:** Milestone 1 foundation implemented; container runtime verification pending<br>
+**Last updated:** 2026-08-14
 
 Investing Bot is a private, locally hosted stock-research tool. It discovers public companies from current news, earnings activity, the S&P 500, and selected political-policy sources; uses an AI model to evaluate growth potential; and passes qualified companies to a deterministic, backtested strategy that calculates potential entries, exits, and invalidation levels.
 
@@ -46,3 +46,28 @@ RAG, a vector database, local LLM training, live order execution, short selling,
 - Docker Compose with named-volume persistence and loopback-only networking
 
 See [Project outline](docs/PROJECT_OUTLINE.md) for the complete flow and [Implementation plan](docs/IMPLEMENTATION_PLAN.md) for the recommended build order.
+
+## Local development
+
+Install the exact development dependency set and run the test suite:
+
+```bash
+python -m pip install -r requirements-dev.lock
+python -m pip install --no-deps -e .
+python -m pytest
+```
+
+Run the service directly with a writable local data directory:
+
+```bash
+INVESTING_BOT_DATA_DIR="$PWD/data" python -m investing_bot
+```
+
+When Docker is available, build and run the hardened local container:
+
+```bash
+docker compose up --build
+```
+
+The dashboard will be available at `http://127.0.0.1:8000`. Do not place API
+keys in `.env`; provider credential storage belongs to a later milestone.

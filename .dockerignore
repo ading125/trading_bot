@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv
+.pytest_cache
+__pycache__
+*.pyc
+*.duckdb
+*.duckdb.wal
+build
+dist
+data
+docs
+tests
+.env
+.env.*
