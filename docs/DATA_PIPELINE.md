@@ -1,7 +1,7 @@
 # Data Pipeline
 
-**Status:** Version-one data contract<br>
-**Last updated:** 2026-08-06
+**Status:** CivicTracker slice implemented; later sources remain planned<br>
+**Last updated:** 2026-08-19
 
 ## CivicTracker collection
 
@@ -15,7 +15,11 @@ GET https://civictracker.us/wp-json/civictracker/v1/proxy/social-posts
     &official_uuid=3094abf7-4a95-4b8d-8c8d-af7d1c3747a1
 ```
 
-The collector will use the JSON response rather than automate a browser. It will retain CivicTracker ID, platform, platform post ID, content, UTC publication time, original URL, media indicator/metadata, deletion state, source member, retrieval time, and raw-response hash.
+The collector uses the JSON response rather than automating a browser. It
+retains platform identity, content, UTC publication time, original URL,
+media/deletion state, source member, retrieval time, raw-response hash, and
+normalization lineage. The upstream CivicTracker row ID is validated but the
+platform post ID is the durable identity.
 
 Deduplication and paging rules:
 
@@ -25,7 +29,20 @@ Deduplication and paging rules:
 4. Upsert edits and deletion-state changes without treating them as new discovery events.
 5. Record empty media-only posts as seen; skip company extraction if no usable text exists.
 6. Use a descriptive user agent, timeouts, a 15–30 minute default interval, backoff, and caching.
-7. Maintain a BeautifulSoup fallback parser targeting `.social-post`, `.post-content`, `.post-date-bottom`, and original-post URLs, but activate it only when the JSON contract fails validation.
+7. Maintain a BeautifulSoup fallback parser targeting `.social-post`, `.post-content`, `.post-date-bottom`, and original-post URLs, but activate it only when the JSON contract fails validation. CivicTracker's current member page is a JavaScript shell, so this fallback is fixture-verified and will report unavailable unless server-rendered cards exist.
+
+Persistence is in DuckDB tables for current posts, immutable post revisions,
+provider/member checkpoints, source health, and per-run collection summaries.
+Media-only and deleted posts are retained but marked ineligible for later text
+discovery. The collector always starts at offset zero and stops after writing
+the known boundary, which lets it detect an edit to that boundary without
+re-emitting it as new discovery.
+
+The anonymous public route currently accepts only `offset=0` even though its
+first response reports `has_more=true`. The adapter recognizes the route's
+explicit `invalid_argument_value` / `Allowed values: 0` response as a clean
+end-of-accessible-data boundary. This preserves the newest public page without
+misreporting an expected access limit as a collection outage.
 
 ## Yahoo Finance collection
 

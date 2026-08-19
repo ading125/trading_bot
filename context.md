@@ -1,7 +1,7 @@
 # Project Context
 
 **Status:** Approved product and architecture direction<br>
-**Last updated:** 2026-08-06
+**Last updated:** 2026-08-17
 
 ## Purpose
 
@@ -89,3 +89,10 @@ The current environment has a Ryzen 5 3600, 12 logical CPUs, approximately 8 GB 
 - Retrieval of analogous historical cases after sufficient clean records exist.
 - SEC filings and earnings transcripts.
 - Paper trading, followed only later by separately authorized live execution.
+
+## Current implementation state
+
+- Milestone 1 provides the FastAPI/DuckDB/container foundation and persistent job runs.
+- Milestone 2 provides provider-neutral contracts, a packaged registry, per-capability configuration, health checks, pinning, fallback provenance, and recorded fixture providers.
+- The running dashboard currently shows system and provider-contract health; it does not yet collect live market evidence or publish investment setups.
+- Docker acceptance checks remain pending in an environment with Docker available.

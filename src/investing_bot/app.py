@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 import logging
 from pathlib import Path
 from uuid import uuid4
@@ -12,9 +13,16 @@ from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 
 from investing_bot.config import AppSettings, get_settings
-from investing_bot.db import Database, JobRunRepository
+from investing_bot.db import Database, JobRunRepository, SocialPostRepository
 from investing_bot.logging import configure_logging
+from investing_bot.providers import (
+    CredentialPresenceStore,
+    ProviderManager,
+    build_default_registry,
+    load_provider_configuration,
+)
 from investing_bot.web.routes import APP_VERSION, router
+from investing_bot.services import CivicTrackerCollector, CivicTrackerPollingService
 
 
 logger = logging.getLogger(__name__)
@@ -34,23 +42,72 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         database = Database(resolved_settings.database_path)
         repository: JobRunRepository | None = None
+        polling_service: CivicTrackerPollingService | None = None
         app.state.database = database
         app.state.settings = resolved_settings
         try:
             database.connect()
             migration_version = database.migrate()
             repository = JobRunRepository(database)
+            post_repository = SocialPostRepository(database)
             interrupted = repository.mark_running_jobs_interrupted()
             app.state.job_runs = repository
+            provider_configuration = load_provider_configuration(
+                resolved_settings.provider_config_path,
+                live_social=resolved_settings.environment != "test",
+            )
+            provider_manager = ProviderManager(
+                registry=build_default_registry(
+                    civictracker_member_uuid=resolved_settings.civictracker_member_uuid,
+                    civictracker_timeout_seconds=(
+                        resolved_settings.civictracker_timeout_seconds
+                    ),
+                    civictracker_retries=resolved_settings.civictracker_retries,
+                ),
+                configuration=provider_configuration,
+                credentials=CredentialPresenceStore(),
+            )
+            provider_health = await provider_manager.refresh_health()
+            next_poll_at = None
+            if resolved_settings.environment != "test":
+                next_poll_at = datetime.now(UTC) + timedelta(
+                    seconds=resolved_settings.civictracker_poll_seconds
+                )
+            for health_result in provider_health:
+                post_repository.record_health(health_result, next_poll_at=next_poll_at)
+            app.state.provider_manager = provider_manager
+            app.state.social_posts = post_repository
+            collector = CivicTrackerCollector(
+                provider_manager=provider_manager,
+                posts=post_repository,
+                jobs=repository,
+                member_uuid=resolved_settings.civictracker_member_uuid,
+                page_size=resolved_settings.civictracker_page_size,
+                max_pages=resolved_settings.civictracker_max_pages,
+            )
+            app.state.civictracker_collector = collector
+            if (
+                resolved_settings.environment != "test"
+                and resolved_settings.civictracker_collection_enabled
+            ):
+                polling_service = CivicTrackerPollingService(
+                    collector,
+                    interval_seconds=resolved_settings.civictracker_poll_seconds,
+                )
+                polling_service.start()
             logger.info(
                 "application ready",
                 extra={
                     "migration_version": migration_version,
                     "interrupted_jobs": interrupted,
+                    "provider_health_checks": len(provider_health),
+                    "provider_configuration_hash": provider_configuration.configuration_hash,
                 },
             )
             yield
         finally:
+            if polling_service is not None:
+                await polling_service.stop()
             if repository is not None:
                 interrupted = repository.mark_running_jobs_interrupted()
                 if interrupted:

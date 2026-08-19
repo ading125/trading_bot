@@ -21,6 +21,8 @@ def test_settings_build_database_path_below_absolute_data_dir(tmp_path: Path) ->
         ("data_dir", Path("relative/data")),
         ("database_name", "../outside.duckdb"),
         ("database_name", "application.sqlite"),
+        ("provider_config_name", "../providers.json"),
+        ("provider_config_name", "providers.toml"),
         ("port", 0),
     ],
 )

@@ -1,0 +1,13 @@
+{
+  "selections": {
+    "daily_bars": {"primary": {"provider_id": "fixture_recorded"}, "fallbacks": [{"provider_id": "fixture_backup"}]},
+    "intraday_bars": {"primary": {"provider_id": "fixture_recorded"}, "fallbacks": [{"provider_id": "fixture_backup"}]},
+    "quotes": {"primary": {"provider_id": "fixture_recorded"}, "fallbacks": [{"provider_id": "fixture_backup"}]},
+    "corporate_actions": {"primary": {"provider_id": "fixture_recorded"}, "fallbacks": [{"provider_id": "fixture_backup"}]},
+    "symbol_lookup": {"primary": {"provider_id": "fixture_recorded"}, "fallbacks": [{"provider_id": "fixture_backup"}]},
+    "news": {"primary": {"provider_id": "fixture_recorded"}, "fallbacks": [{"provider_id": "fixture_backup"}]},
+    "earnings": {"primary": {"provider_id": "fixture_recorded"}, "fallbacks": [{"provider_id": "fixture_backup"}]},
+    "social_posts": {"primary": {"provider_id": "fixture_recorded"}, "fallbacks": [{"provider_id": "fixture_backup"}]},
+    "structured_llm": {"primary": {"provider_id": "fixture_recorded"}, "fallbacks": [{"provider_id": "fixture_backup"}]}
+  }
+}

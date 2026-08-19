@@ -1,7 +1,7 @@
 # Investing Bot
 
-**Status:** Milestone 1 foundation implemented; container runtime verification pending<br>
-**Last updated:** 2026-08-14
+**Status:** Milestones 1–3 implemented; container runtime verification pending<br>
+**Last updated:** 2026-08-19
 
 Investing Bot is a private, locally hosted stock-research tool. It discovers public companies from current news, earnings activity, the S&P 500, and selected political-policy sources; uses an AI model to evaluate growth potential; and passes qualified companies to a deterministic, backtested strategy that calculates potential entries, exits, and invalidation levels.
 
@@ -31,6 +31,7 @@ RAG, a vector database, local LLM training, live order execution, short selling,
 - [AI analysis](docs/AI_ANALYSIS.md)
 - [Strategy and backtesting](docs/STRATEGY_AND_BACKTESTING.md)
 - [Security](docs/SECURITY.md)
+- [Provider framework](docs/PROVIDER_FRAMEWORK.md)
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 
 ## Current technology direction
@@ -41,6 +42,7 @@ RAG, a vector database, local LLM training, live order execution, short selling,
 - DuckDB for application records and Parquet for market history
 - `yfinance` for initial Yahoo Finance data access
 - CivicTracker's public JSON feed for selected executive social posts
+- BeautifulSoup HTML parsing as a schema-validated CivicTracker fallback
 - Provider-neutral hosted LLM adapter
 - Per-capability provider registry and local settings so data and AI APIs can be changed without business-logic edits or an image rebuild
 - Docker Compose with named-volume persistence and loopback-only networking
@@ -71,3 +73,14 @@ docker compose up --build
 
 The dashboard will be available at `http://127.0.0.1:8000`. Do not place API
 keys in `.env`; provider credential storage belongs to a later milestone.
+
+Production/development mode selects live CivicTracker JSON for social posts and
+falls back to its HTML adapter if a compatible server-rendered page is available.
+Tests remain fully offline on deterministic recorded providers. Copy
+[providers.example.json](providers.example.json) to `data/providers.json` only
+when you want to override the default selections.
+
+The live collector begins in the background, polls no more often than every 15
+minutes by default, and fetches at most five pages per run. Its member UUID,
+interval, page size, page cap, timeout, retry count, and enabled state are
+non-secret `INVESTING_BOT_CIVICTRACKER_*` settings.

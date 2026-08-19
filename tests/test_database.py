@@ -18,7 +18,7 @@ from investing_bot.db import (
 def open_database(path: Path) -> Database:
     database = Database(path)
     database.connect()
-    assert database.migrate() == 1
+    assert database.migrate() == 2
     return database
 
 
@@ -26,12 +26,12 @@ def test_migrations_are_idempotent_and_persist_across_reopen(tmp_path: Path) -> 
     path = tmp_path / "state" / "investing_bot.duckdb"
     database = open_database(path)
     assert database.is_ready()
-    assert database.migrate() == 1
+    assert database.migrate() == 2
     database.close()
 
     reopened = open_database(path)
     assert reopened.is_ready()
-    assert reopened.fetchone("SELECT COUNT(*) FROM schema_migrations") == (1,)
+    assert reopened.fetchone("SELECT COUNT(*) FROM schema_migrations") == (2,)
     reopened.close()
 
 

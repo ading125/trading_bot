@@ -1,7 +1,7 @@
 # Implementation Plan
 
-**Status:** Milestone 1 implemented; Docker runtime acceptance checks pending<br>
-**Last updated:** 2026-08-14
+**Status:** Milestones 1–2 implemented; Docker runtime acceptance checks pending<br>
+**Last updated:** 2026-08-17
 
 ## Guiding approach
 
@@ -33,6 +33,13 @@ Completion criteria:
 
 ## Milestone 2 — Provider framework
 
+Implementation status (2026-08-17): capability-specific protocols, canonical
+records and provenance, manifests, the packaged registry, local validated
+selection, opaque credential references, connection health, run pinning,
+controlled fallback, recorded fixture adapters, read-only provider API/views,
+and shared contract/architecture tests are implemented. Live providers and
+encrypted credential storage remain assigned to their later milestones.
+
 Deliverables:
 
 - Narrow provider protocols, canonical request/response/error models, `ProviderRegistry`, and `ProviderManifest`.
@@ -49,6 +56,8 @@ Completion criteria:
 
 ## Milestone 3 — CivicTracker vertical slice
 
+**Status: implemented and verified on 2026-08-19.**
+
 Deliverables:
 
 - `CivicTrackerProvider` using the JSON feed and configured member UUID.
@@ -62,6 +71,11 @@ Completion criteria:
 - A content edit updates the stored record and records the change.
 - The provider stops paging at a known boundary.
 - JSON and fallback parser fixtures normalize into the same canonical schema.
+
+Verification: 97 automated tests cover the live-adapter contract, polite
+headers/retry behavior, JSON/HTML parity, durable deduplication, edit/deletion
+revisions, and known-boundary pagination. A live endpoint smoke test remains a
+runtime check because the test suite intentionally has no network dependency.
 
 ## Milestone 4 — Yahoo market and event data
 

@@ -11,3 +11,14 @@ __all__ = [
     "DeduplicationResult",
     "SourcePostDeduplicator",
 ]
+from investing_bot.services.civictracker_collector import (
+    CivicTrackerCollector,
+    CivicTrackerPollingService,
+    CollectionBusyError,
+)
+
+__all__ = [
+    "CivicTrackerCollector",
+    "CivicTrackerPollingService",
+    "CollectionBusyError",
+]

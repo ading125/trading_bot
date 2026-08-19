@@ -9,6 +9,12 @@ import pytest
 from investing_bot.app import create_app
 from investing_bot.config import AppSettings
 from investing_bot.db import Database, JobRunRepository, JobStatus
+from investing_bot.models import ProviderCapability
+from investing_bot.providers import (
+    CapabilitySelection,
+    ProviderConfiguration,
+    ProviderTarget,
+)
 
 
 @pytest.mark.anyio
@@ -27,16 +33,36 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
         ) as client:
             health = await client.get("/api/v1/health")
             ready = await client.get("/api/v1/ready")
+            providers = await client.get("/api/v1/providers")
+            provider_health = await client.get("/api/v1/providers/health")
+            source_health = await client.get("/api/v1/sources/health")
+            posts = await client.get("/api/v1/sources/civictracker/posts")
             dashboard = await client.get("/")
 
     assert health.status_code == 200
     assert health.json()["status"] == "ok"
     assert ready.status_code == 200
     assert ready.json()["status"] == "ready"
-    assert ready.json()["migration_version"] == 1
+    assert ready.json()["migration_version"] == 2
+    assert providers.status_code == 200
+    assert len(providers.json()["providers"]) == 4
+    assert providers.json()["selections"]["daily_bars"]["primary"]["provider_id"] == (
+        "fixture_recorded"
+    )
+    assert "credential_ref" not in providers.text
+    assert provider_health.status_code == 200
+    assert len(provider_health.json()["results"]) == 18
+    assert all(
+        item["state"] == "healthy" for item in provider_health.json()["results"]
+    )
+    assert source_health.status_code == 200
+    assert len(source_health.json()["results"]) == 18
+    assert posts.status_code == 200
+    assert posts.json() == {"items": [], "count": 0}
     assert dashboard.status_code == 200
     assert "The local research service is running." in dashboard.text
     assert "No recommendation is generated" in dashboard.text
+    assert "Configured providers" in dashboard.text
 
     for response in (health, ready, dashboard):
         assert response.headers["x-content-type-options"] == "nosniff"
@@ -101,3 +127,34 @@ async def test_shutdown_marks_running_jobs_interrupted(tmp_path: Path) -> None:
 
     assert persisted.status is JobStatus.INTERRUPTED
     assert persisted.error_summary == "application stopped before job completed"
+
+
+@pytest.mark.anyio
+async def test_local_provider_configuration_changes_startup_selection(
+    tmp_path: Path,
+) -> None:
+    configuration = ProviderConfiguration(
+        selections={
+            ProviderCapability.NEWS: CapabilitySelection(
+                primary=ProviderTarget(provider_id="fixture_backup")
+            )
+        }
+    )
+    (tmp_path / "providers.json").write_text(
+        configuration.model_dump_json(indent=2), encoding="utf-8"
+    )
+    app = create_app(
+        AppSettings(environment="test", data_dir=tmp_path, log_format="console")
+    )
+
+    async with app.router.lifespan_context(app):
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://testserver"
+        ) as client:
+            response = await client.get("/api/v1/providers")
+
+    assert response.status_code == 200
+    assert response.json()["configuration_hash"] == configuration.configuration_hash
+    assert response.json()["selections"]["news"]["primary"]["provider_id"] == (
+        "fixture_backup"
+    )

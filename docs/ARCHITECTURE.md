@@ -1,7 +1,7 @@
 # Architecture
 
-**Status:** Proposed implementation architecture<br>
-**Last updated:** 2026-08-06
+**Status:** Milestones 1–3 implemented; later components proposed<br>
+**Last updated:** 2026-08-19
 
 ## Components
 
@@ -43,6 +43,11 @@ flowchart TB
 ## Service boundaries
 
 Source adapters return canonical records and never write strategy outputs directly. The AI service receives evidence records and never fetches arbitrary URLs. Strategies receive immutable, time-bounded market frames and cannot call the network, LLM, or filesystem. The backtester controls the simulated clock and exposes only information available at each timestamp.
+
+The implemented CivicTracker path follows that boundary: transport adapters
+return `SocialPostRecord`; `CivicTrackerCollector` owns paging and job leases;
+`SocialPostRepository` owns deduplication, revisions, checkpoints, health, and
+collection summaries; read-only FastAPI routes expose recent posts and health.
 
 ## Provider subsystem
 

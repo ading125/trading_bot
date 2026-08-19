@@ -1,7 +1,7 @@
 # AI Working Prompt and Decision Log
 
 **Status:** Active<br>
-**Last updated:** 2026-08-14
+**Last updated:** 2026-08-17
 
 ## AI Working Prompt
 
@@ -133,6 +133,37 @@ The following sections record settled decisions and their reasoning. They are no
 - The user no longer intends to use this project to learn how to code.
 - Project updates should focus on outcomes, decisions, risks, verification, and how to direct and review an AI development workflow.
 - Provide code-level teaching only when the user explicitly requests it.
+
+## 2026-08-17 — Provider framework implementation
+
+- Implemented capability-specific provider contracts and an explicit packaged registry.
+- Selected providers are pinned before a run begins; fallback attempts are recorded, and silent mid-run switching is prohibited.
+- Local configuration stores only opaque credential references, never usable secrets.
+- Deterministic recorded fixture providers are the default until live adapters arrive in later milestones.
+- Optional provider health is reported per capability and does not disable unrelated deterministic functions.
+
+## 2026-08-19 — CivicTracker vertical slice implementation
+
+- Implemented the verified public JSON contract with a descriptive user agent,
+  member-page referrer, timeout, bounded exponential backoff with jitter, and
+  offset pagination.
+- Made `(platform, post_id)` the durable identity; raw-payload hashes preserve
+  source-change evidence while normalized content hashes drive edit detection.
+- Persisted current posts and immutable revisions separately so edits and
+  deletions update current state without becoming duplicate discovery events.
+- Chose to start each poll at offset zero and stop at the prior newest boundary;
+  the boundary itself is still written so an edit to it cannot be missed.
+- Kept media-only and deleted posts as seen records while excluding them from
+  later text discovery.
+- Registered HTML as a validated fallback but treated absence of server-rendered
+  `.social-post` cards as explicit unavailability; the current live page is a
+  JavaScript shell.
+- Enabled live social collection only outside test mode. Automated tests stay
+  deterministic and offline; production polling defaults to 15 minutes and a
+  five-page safety cap.
+- Confirmed the anonymous route currently restricts `offset` to zero despite
+  reporting `has_more=true`; treat that exact upstream response as the end of
+  accessible public data rather than a failed run.
 
 ## Current assumptions to validate experimentally
 

@@ -27,10 +27,21 @@ class AppSettings(BaseSettings):
     environment: Literal["development", "test", "production"] = "production"
     data_dir: Path = Path("/data")
     database_name: str = "investing_bot.duckdb"
+    provider_config_name: str = "providers.json"
     bind_host: IPv4Address | IPv6Address = IPv4Address("127.0.0.1")
     port: int = Field(default=8000, ge=1, le=65_535)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     log_format: Literal["json", "console"] = "json"
+    civictracker_member_uuid: str = Field(
+        default="3094abf7-4a95-4b8d-8c8d-af7d1c3747a1",
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    )
+    civictracker_poll_seconds: int = Field(default=900, ge=300, le=86_400)
+    civictracker_page_size: int = Field(default=20, ge=1, le=100)
+    civictracker_max_pages: int = Field(default=5, ge=1, le=100)
+    civictracker_timeout_seconds: float = Field(default=15.0, ge=1, le=60)
+    civictracker_retries: int = Field(default=2, ge=0, le=5)
+    civictracker_collection_enabled: bool = True
 
     @field_validator("data_dir")
     @classmethod
@@ -50,11 +61,22 @@ class AppSettings(BaseSettings):
             raise ValueError("database_name must be a plain .duckdb filename")
         return value
 
+    @field_validator("provider_config_name")
+    @classmethod
+    def require_plain_provider_config_filename(cls, value: str) -> str:
+        if not value or value != Path(value).name or Path(value).suffix != ".json":
+            raise ValueError("provider_config_name must be a plain .json filename")
+        return value
+
     @property
     def database_path(self) -> Path:
         """Return the database file below the persistent data directory."""
 
         return self.data_dir / self.database_name
+
+    @property
+    def provider_config_path(self) -> Path:
+        return self.data_dir / self.provider_config_name
 
 
 @lru_cache(maxsize=1)
