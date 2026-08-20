@@ -1,7 +1,7 @@
 # Investing Bot
 
-**Status:** Milestones 1–3 implemented; container runtime verification pending<br>
-**Last updated:** 2026-08-19
+**Status:** Milestones 1–5 plus the fixture-backed Milestone 6 vertical slice implemented; container runtime verification pending<br>
+**Last updated:** 2026-08-20
 
 Investing Bot is a private, locally hosted stock-research tool. It discovers public companies from current news, earnings activity, the S&P 500, and selected political-policy sources; uses an AI model to evaluate growth potential; and passes qualified companies to a deterministic, backtested strategy that calculates potential entries, exits, and invalidation levels.
 
@@ -72,7 +72,7 @@ docker compose up --build
 ```
 
 The dashboard will be available at `http://127.0.0.1:8000`. Do not place API
-keys in `.env`; provider credential storage belongs to a later milestone.
+keys in `.env`; live hosted-AI credential entry is not enabled yet.
 
 Production/development mode selects live CivicTracker JSON for social posts and
 falls back to its HTML adapter if a compatible server-rendered page is available.
@@ -80,7 +80,40 @@ Tests remain fully offline on deterministic recorded providers. Copy
 [providers.example.json](providers.example.json) to `data/providers.json` only
 when you want to override the default selections.
 
-The live collector begins in the background, polls no more often than every 15
+The live CivicTracker collector begins in the background, polls no more often than every 15
 minutes by default, and fetches at most five pages per run. Its member UUID,
 interval, page size, page cap, timeout, retry count, and enabled state are
 non-secret `INVESTING_BOT_CIVICTRACKER_*` settings.
+
+Market collection uses live Yahoo Finance providers outside test mode but is
+opt-in by default. To enable bounded hourly collection for the configured seed
+watchlist, set `INVESTING_BOT_MARKET_COLLECTION_ENABLED=true` and restart the
+service. Canonical bars are written below `data/market`, raw Yahoo payloads below
+`data/cache/yahoo`, and the dashboard/API expose dataset and quarantine counts.
+The watchlist and polling/history bounds use the non-secret
+`INVESTING_BOT_MARKET_*` settings in [.env.example](.env.example).
+
+Candidate refresh runs every 15 minutes by default and uses stored source data.
+It creates expiring, source-attributed research leads from the latest S&P 500
+snapshot, CivicTracker mentions, news, and earnings. View them at
+`/api/v1/candidates`, with exact source passages under each ticker's
+`/api/v1/candidates/{symbol}/evidence` route. Ambiguous and unresolved mentions
+remain visible at `/api/v1/resolutions` but cannot enter the candidate list.
+
+The first Milestone 6 vertical slice analyzes the bounded `CVX` seed through the
+recorded structured-LLM fixture. It stores immutable evidence packages,
+provider-version-aware cache keys, assessment history, and prospective 5/10/20
+session outcome slots. The dashboard shows the latest thesis, scores, catalysts,
+bear case, risks, uncertainty, and evidence link. Read-only records are also
+available at `/api/v1/analyses`, `/api/v1/analyses/{symbol}`, and
+`/api/v1/analyses/{symbol}/evidence`. A live hosted provider and encrypted
+credential unlock flow remain the next Milestone 6 increment.
+
+Verification: 111 offline tests cover provider contracts, CivicTracker
+collection, Yahoo normalization, incremental market coverage,
+validation/quarantine, revision history, actual Parquet publication, deterministic
+company resolution, ambiguity/manual-review behavior, source provenance, and
+candidate expiry, source-bounded analysis validation, caching, history, and
+political-only qualification rejection. Live SPY and Chevron Yahoo checks and
+the local fixture-backed CVX analysis were smoke-tested successfully on
+2026-08-20.

@@ -1,7 +1,7 @@
 # Project Outline
 
-**Status:** Approved high-level design<br>
-**Last updated:** 2026-08-06
+**Status:** Ingestion, candidate resolution, and fixture-backed AI-analysis vertical slice implemented<br>
+**Last updated:** 2026-08-20
 
 ## System flow
 

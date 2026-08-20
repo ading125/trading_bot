@@ -1,7 +1,7 @@
 # Data Pipeline
 
-**Status:** CivicTracker slice implemented; later sources remain planned<br>
-**Last updated:** 2026-08-19
+**Status:** CivicTracker and Yahoo market/event slices implemented<br>
+**Last updated:** 2026-08-20
 
 ## CivicTracker collection
 
@@ -46,7 +46,10 @@ misreporting an expected access limit as a collection outage.
 
 ## Yahoo Finance collection
 
-Use a pinned `yfinance` version behind adapter interfaces.
+The implemented `yfinance==1.6.0` adapter is registered as `yahoo_finance` for
+daily/intraday bars, quotes, corporate actions, symbol lookup, news, and
+earnings. Production selects it with deterministic fixtures as an explicit
+pre-run fallback; tests use recorded providers only.
 
 Collect:
 
@@ -67,6 +70,18 @@ Operational rules:
 - Store whether `repair=True` was used and never silently overwrite accepted history with repaired values.
 - Archive intraday bars locally from day one because Yahoo intraday retrieval does not provide unlimited history.
 
+Successful provider payloads are cached before normalization. A validation gate
+rejects missing symbols, duplicate timestamps, request mismatches, out-of-range
+bars, stale data, and extreme unexplained discontinuities; rejected batches are
+stored in `market_quarantine` and never reach canonical datasets. Accepted bars
+are revision-tracked in DuckDB and atomically republished as Zstandard-compressed
+Parquet partitions by interval, adjustment, symbol, and year. Per-symbol coverage
+cursors prevent identical runs from re-requesting already validated ranges.
+
+S&P 500 collection validates the current Wikipedia constituents table, requires
+490–520 unique members, hashes the raw page, and stores point-in-time snapshots.
+This does not manufacture historical membership before the first snapshot.
+
 ## Canonical provider contracts
 
 Adapters normalize bars, corporate actions, symbols, news, earnings, estimates, and social posts into small canonical records. Every record carries the provider ID, provider record/request ID when available, event or publication time, known-available time, retrieval time, raw payload hash/reference, normalization schema version, and adapter version.
@@ -79,6 +94,12 @@ Price histories from different providers are not appended or compared as if iden
 
 ## Candidate sources
 
+The candidate union is implemented as an expiring registry. The latest S&P 500
+snapshot, canonical news symbols, and canonical earnings symbols enter directly
+with source attribution. CivicTracker text enters only after deterministic
+extraction and verified resolution. A refresh reconciles removed/edited sources,
+deactivates unseen or expired evidence, and recomputes active candidates.
+
 Candidate membership is a union with source attribution:
 
 - Current S&P 500 universe.
@@ -89,6 +110,17 @@ Candidate membership is a union with source attribution:
 Membership alone is not an endorsement. Each candidate carries source type, source record IDs, first/last seen timestamps, extraction method, relevance, and expiration.
 
 ## Company extraction and ticker resolution
+
+The implemented resolver loads packaged `company_aliases.v1`, augments it with
+each point-in-time S&P 500 snapshot, matches longest aliases and explicit ticker
+syntax, and recognizes names with legal company suffixes. Unknown names query the
+configured `SymbolLookupProvider`. Low-confidence and closely tied alternatives
+remain unresolved or ambiguous and never silently produce a candidate.
+
+The bounded AI-extraction interface is present but intentionally uses a no-op
+implementation until Milestone 6 configures a hosted LLM. Any future suggestions
+must name text present in the source, classify the entity, stay within source and
+suggestion caps, and pass the same independent symbol-provider verification.
 
 Resolution pipeline:
 

@@ -79,6 +79,8 @@ runtime check because the test suite intentionally has no network dependency.
 
 ## Milestone 4 — Yahoo market and event data
 
+**Status:** Implemented and fixture/live-smoke verified on 2026-08-20.
+
 Deliverables:
 
 - Replaceable `MarketDataProvider`, `NewsProvider`, and `EarningsProvider` interfaces with `yfinance` implementations.
@@ -95,6 +97,8 @@ Completion criteria:
 
 ## Milestone 5 — Company resolution and candidate registry
 
+**Status:** Implemented and fixture/live-smoke verified on 2026-08-20.
+
 Deliverables:
 
 - Versioned aliases, deterministic organization extraction, bounded AI extraction fallback, and `yfinance` ticker verification.
@@ -110,6 +114,12 @@ Completion criteria:
 - AI-returned unknown tickers fail validation.
 
 ## Milestone 6 — AI growth analysis
+
+Implementation status: the safe first vertical slice is complete using the
+recorded structured-analysis provider. Evidence packages, validation, cache and
+history persistence, prospective outcome slots, APIs, background scheduling,
+and dashboard presentation are implemented. The live hosted-provider adapter
+and encrypted credential unlock flow remain pending an explicit provider choice.
 
 Deliverables:
 

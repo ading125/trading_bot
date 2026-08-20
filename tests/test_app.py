@@ -37,15 +37,25 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
             provider_health = await client.get("/api/v1/providers/health")
             source_health = await client.get("/api/v1/sources/health")
             posts = await client.get("/api/v1/sources/civictracker/posts")
+            market_status = await client.get("/api/v1/market/status")
+            market_bars = await client.get(
+                "/api/v1/market/bars?symbol=SPY&interval=1d&adjustment=adjusted"
+            )
+            market_datasets = await client.get("/api/v1/market/datasets")
+            candidates = await client.get("/api/v1/candidates")
+            resolutions = await client.get("/api/v1/resolutions")
+            evidence = await client.get("/api/v1/candidates/CVX/evidence")
+            analyses = await client.get("/api/v1/analyses")
+            missing_analysis = await client.get("/api/v1/analyses/CVX")
             dashboard = await client.get("/")
 
     assert health.status_code == 200
     assert health.json()["status"] == "ok"
     assert ready.status_code == 200
     assert ready.json()["status"] == "ready"
-    assert ready.json()["migration_version"] == 2
+    assert ready.json()["migration_version"] == 5
     assert providers.status_code == 200
-    assert len(providers.json()["providers"]) == 4
+    assert len(providers.json()["providers"]) == 5
     assert providers.json()["selections"]["daily_bars"]["primary"]["provider_id"] == (
         "fixture_recorded"
     )
@@ -59,10 +69,22 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
     assert len(source_health.json()["results"]) == 18
     assert posts.status_code == 200
     assert posts.json() == {"items": [], "count": 0}
+    assert market_status.json()["bar_count"] == 0
+    assert market_status.json()["quarantine_count"] == 0
+    assert market_bars.json() == {"items": [], "count": 0}
+    assert market_datasets.json() == {"items": [], "count": 0}
+    assert candidates.json() == {"items": [], "count": 0}
+    assert resolutions.json() == {"items": [], "count": 0}
+    assert evidence.json() == {"items": [], "count": 0}
+    assert analyses.json() == {"items": [], "count": 0}
+    assert missing_analysis.status_code == 404
     assert dashboard.status_code == 200
     assert "The local research service is running." in dashboard.text
     assert "No recommendation is generated" in dashboard.text
     assert "Configured providers" in dashboard.text
+    assert "Market bars" in dashboard.text
+    assert "Current verified companies" in dashboard.text
+    assert "Latest AI assessments" in dashboard.text
 
     for response in (health, ready, dashboard):
         assert response.headers["x-content-type-options"] == "nosniff"

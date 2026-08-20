@@ -13,7 +13,14 @@ from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 
 from investing_bot.config import AppSettings, get_settings
-from investing_bot.db import Database, JobRunRepository, SocialPostRepository
+from investing_bot.db import (
+    AnalysisRepository,
+    CandidateRepository,
+    Database,
+    JobRunRepository,
+    MarketDataRepository,
+    SocialPostRepository,
+)
 from investing_bot.logging import configure_logging
 from investing_bot.providers import (
     CredentialPresenceStore,
@@ -22,7 +29,19 @@ from investing_bot.providers import (
     load_provider_configuration,
 )
 from investing_bot.web.routes import APP_VERSION, router
-from investing_bot.services import CivicTrackerCollector, CivicTrackerPollingService
+from investing_bot.services import (
+    AnalysisEvidenceBuilder,
+    AnalysisPollingService,
+    CandidatePollingService,
+    CandidateRegistryService,
+    CivicTrackerCollector,
+    CivicTrackerPollingService,
+    CompanyResolver,
+    GrowthAnalysisService,
+    MarketDataCollector,
+    MarketPollingService,
+    SP500UniverseCollector,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -42,7 +61,11 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         database = Database(resolved_settings.database_path)
         repository: JobRunRepository | None = None
+        provider_manager: ProviderManager | None = None
         polling_service: CivicTrackerPollingService | None = None
+        market_polling_service: MarketPollingService | None = None
+        candidate_polling_service: CandidatePollingService | None = None
+        analysis_polling_service: AnalysisPollingService | None = None
         app.state.database = database
         app.state.settings = resolved_settings
         try:
@@ -50,11 +73,17 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             migration_version = database.migrate()
             repository = JobRunRepository(database)
             post_repository = SocialPostRepository(database)
+            market_repository = MarketDataRepository(
+                database, dataset_root=resolved_settings.market_dataset_path
+            )
+            candidate_repository = CandidateRepository(database)
+            analysis_repository = AnalysisRepository(database)
             interrupted = repository.mark_running_jobs_interrupted()
             app.state.job_runs = repository
             provider_configuration = load_provider_configuration(
                 resolved_settings.provider_config_path,
                 live_social=resolved_settings.environment != "test",
+                live_market=resolved_settings.environment != "test",
             )
             provider_manager = ProviderManager(
                 registry=build_default_registry(
@@ -63,6 +92,10 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
                         resolved_settings.civictracker_timeout_seconds
                     ),
                     civictracker_retries=resolved_settings.civictracker_retries,
+                    yahoo_raw_cache_dir=resolved_settings.market_raw_cache_path,
+                    yahoo_repair=resolved_settings.yahoo_repair_enabled,
+                    yahoo_timeout_seconds=resolved_settings.yahoo_timeout_seconds,
+                    yahoo_retries=resolved_settings.yahoo_retries,
                 ),
                 configuration=provider_configuration,
                 credentials=CredentialPresenceStore(),
@@ -77,6 +110,9 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
                 post_repository.record_health(health_result, next_poll_at=next_poll_at)
             app.state.provider_manager = provider_manager
             app.state.social_posts = post_repository
+            app.state.market_data = market_repository
+            app.state.candidates = candidate_repository
+            app.state.analyses = analysis_repository
             collector = CivicTrackerCollector(
                 provider_manager=provider_manager,
                 posts=post_repository,
@@ -86,6 +122,31 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
                 max_pages=resolved_settings.civictracker_max_pages,
             )
             app.state.civictracker_collector = collector
+            market_collector = MarketDataCollector(
+                provider_manager=provider_manager,
+                repository=market_repository,
+                jobs=repository,
+            )
+            app.state.market_collector = market_collector
+            sp500_collector = SP500UniverseCollector(market_repository)
+            app.state.sp500_collector = sp500_collector
+            company_resolver = CompanyResolver(
+                repository=candidate_repository,
+                provider_manager=provider_manager,
+            )
+            candidate_service = CandidateRegistryService(
+                repository=candidate_repository,
+                resolver=company_resolver,
+                jobs=repository,
+            )
+            app.state.candidate_service = candidate_service
+            analysis_service = GrowthAnalysisService(
+                evidence_builder=AnalysisEvidenceBuilder(candidate_repository),
+                repository=analysis_repository,
+                provider_manager=provider_manager,
+                jobs=repository,
+            )
+            app.state.analysis_service = analysis_service
             if (
                 resolved_settings.environment != "test"
                 and resolved_settings.civictracker_collection_enabled
@@ -95,6 +156,40 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
                     interval_seconds=resolved_settings.civictracker_poll_seconds,
                 )
                 polling_service.start()
+            if (
+                resolved_settings.environment != "test"
+                and resolved_settings.market_collection_enabled
+            ):
+                market_polling_service = MarketPollingService(
+                    market_collector,
+                    symbols=resolved_settings.parsed_market_seed_symbols,
+                    interval_seconds=resolved_settings.market_poll_seconds,
+                    daily_history_days=resolved_settings.market_daily_history_days,
+                    intraday_history_days=resolved_settings.market_intraday_history_days,
+                    universe_collector=sp500_collector,
+                )
+                market_polling_service.start()
+            if (
+                resolved_settings.environment != "test"
+                and resolved_settings.candidate_refresh_enabled
+            ):
+                candidate_polling_service = CandidatePollingService(
+                    candidate_service,
+                    interval_seconds=resolved_settings.candidate_refresh_seconds,
+                )
+                candidate_polling_service.start()
+            if (
+                resolved_settings.environment != "test"
+                and resolved_settings.analysis_refresh_enabled
+                and resolved_settings.parsed_analysis_seed_symbols
+            ):
+                analysis_polling_service = AnalysisPollingService(
+                    analysis_service,
+                    symbols=resolved_settings.parsed_analysis_seed_symbols,
+                    interval_seconds=resolved_settings.analysis_refresh_seconds,
+                    initial_delay_seconds=10,
+                )
+                analysis_polling_service.start()
             logger.info(
                 "application ready",
                 extra={
@@ -106,6 +201,12 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             )
             yield
         finally:
+            if analysis_polling_service is not None:
+                await analysis_polling_service.stop()
+            if candidate_polling_service is not None:
+                await candidate_polling_service.stop()
+            if market_polling_service is not None:
+                await market_polling_service.stop()
             if polling_service is not None:
                 await polling_service.stop()
             if repository is not None:
@@ -115,6 +216,8 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
                         "running jobs interrupted during shutdown",
                         extra={"interrupted_jobs": interrupted},
                     )
+            if provider_manager is not None:
+                await provider_manager.close()
             database.close()
             logger.info("application stopped")
 

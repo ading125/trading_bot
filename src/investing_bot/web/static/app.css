@@ -67,6 +67,28 @@ h2 { max-width: 14ch; font-size: clamp(2.3rem, 7vw, 5.5rem); line-height: .95; l
 .provider-list { border: 1px solid var(--border); border-radius: 1rem; overflow: hidden; }
 .provider-row { display: grid; grid-template-columns: 1.2fr 1fr auto; gap: 1rem; padding: .85rem 1rem; border-bottom: 1px solid var(--border); background: var(--surface); font-size: .85rem; }
 .provider-row:last-child { border-bottom: 0; }
+.candidate-row { grid-template-columns: .45fr 1.5fr auto; }
+.empty-state { padding: 1rem; margin: 0; }
+.section-intro { max-width: 48rem; margin-bottom: 1rem; }
+.analysis-list { display: grid; gap: 1rem; }
+.analysis-card { padding: clamp(1rem, 3vw, 1.5rem); border: 1px solid var(--border); border-radius: 1rem; background: var(--surface); }
+.analysis-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.analysis-header h4 { margin: .2rem 0 0; font-size: 1.35rem; }
+.analysis-symbol { margin: 0; color: var(--muted); font-size: .78rem; font-weight: 800; letter-spacing: .12em; }
+.analysis-decision { padding: .35rem .65rem; border-radius: 999px; font-size: .74rem; font-weight: 800; text-transform: uppercase; }
+.decision-qualify { color: #075b43; background: #d8f5e8; }
+.decision-investigate { color: #745400; background: #fff0bd; }
+.decision-reject, .decision-insufficient_evidence { color: #7a2430; background: #f9dce1; }
+.score-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; margin: 1.25rem 0; }
+.score-grid > div { padding: .8rem; border-radius: .75rem; background: var(--surface-light); }
+.score-grid span { display: block; margin-bottom: .35rem; color: var(--muted); font-size: .75rem; }
+.score-grid strong { font-size: 1.05rem; }
+.analysis-copy { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; margin-top: 1rem; }
+.analysis-copy h5 { margin: 0 0 .45rem; font-size: .82rem; text-transform: uppercase; letter-spacing: .08em; }
+.analysis-copy p, .analysis-copy ul { margin: 0; line-height: 1.55; }
+.analysis-copy ul { padding-left: 1.1rem; }
+.analysis-footer { display: flex; flex-wrap: wrap; gap: .65rem 1rem; margin-top: 1.25rem; padding-top: .8rem; border-top: 1px solid var(--border); color: var(--muted); font-size: .75rem; }
+.analysis-footer a { margin-left: auto; color: var(--accent); }
 .post-row { padding: 1rem; border-bottom: 1px solid var(--border); background: var(--surface); }
 .post-row:last-child { border-bottom: 0; }
 .post-row > div { display: flex; align-items: center; gap: .75rem; margin-bottom: .65rem; font-size: .82rem; }
@@ -81,4 +103,9 @@ h2 { max-width: 14ch; font-size: clamp(2.3rem, 7vw, 5.5rem); line-height: .95; l
   .grid { grid-template-columns: 1fr; }
   .hero { padding-top: 4vh; }
   .provider-row { grid-template-columns: 1fr; gap: .3rem; }
+  .candidate-row { grid-template-columns: 1fr; }
+  .score-grid, .analysis-copy { grid-template-columns: 1fr; }
+  .analysis-header { align-items: stretch; flex-direction: column; }
+  .analysis-decision { align-self: flex-start; }
+  .analysis-footer a { width: 100%; margin-left: 0; }
 }

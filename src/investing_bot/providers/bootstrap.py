@@ -21,6 +21,7 @@ from investing_bot.providers.civictracker import (
     build_json_manifest,
 )
 from investing_bot.providers.registry import ProviderRegistry
+from investing_bot.providers.yahoo import YahooFinanceProvider, build_yahoo_manifest
 
 
 PRIMARY_FIXTURE_ID = "fixture_recorded"
@@ -32,6 +33,10 @@ def build_default_registry(
     civictracker_member_uuid: str = "3094abf7-4a95-4b8d-8c8d-af7d1c3747a1",
     civictracker_timeout_seconds: float = 15.0,
     civictracker_retries: int = 2,
+    yahoo_raw_cache_dir: Path | None = None,
+    yahoo_repair: bool = False,
+    yahoo_timeout_seconds: float = 15.0,
+    yahoo_retries: int = 2,
 ) -> ProviderRegistry:
     """Register only providers compiled into this application version."""
 
@@ -57,10 +62,19 @@ def build_default_registry(
             timeout_seconds=civictracker_timeout_seconds,
         ),
     )
+    yahoo_provider = YahooFinanceProvider(
+        raw_cache_dir=yahoo_raw_cache_dir,
+        repair=yahoo_repair,
+        timeout_seconds=yahoo_timeout_seconds,
+        retries=yahoo_retries,
+    )
+    registry.register(build_yahoo_manifest(), lambda: yahoo_provider)
     return registry
 
 
-def default_provider_configuration(*, live_social: bool = False) -> ProviderConfiguration:
+def default_provider_configuration(
+    *, live_social: bool = False, live_market: bool = False
+) -> ProviderConfiguration:
     """Use live CivicTracker only in non-test runtime environments."""
 
     selections = {
@@ -75,16 +89,32 @@ def default_provider_configuration(*, live_social: bool = False) -> ProviderConf
             primary=ProviderTarget(provider_id="civictracker_json"),
             fallbacks=(ProviderTarget(provider_id="civictracker_html"),),
         )
+    if live_market:
+        for capability in (
+            ProviderCapability.DAILY_BARS,
+            ProviderCapability.INTRADAY_BARS,
+            ProviderCapability.QUOTES,
+            ProviderCapability.CORPORATE_ACTIONS,
+            ProviderCapability.SYMBOL_LOOKUP,
+            ProviderCapability.NEWS,
+            ProviderCapability.EARNINGS,
+        ):
+            selections[capability] = CapabilitySelection(
+                primary=ProviderTarget(provider_id="yahoo_finance"),
+                fallbacks=(ProviderTarget(provider_id=PRIMARY_FIXTURE_ID),),
+            )
     return ProviderConfiguration(selections=selections)
 
 
 def load_provider_configuration(
-    path: Path, *, live_social: bool = False
+    path: Path, *, live_social: bool = False, live_market: bool = False
 ) -> ProviderConfiguration:
     """Load an optional local selection file, falling back to recorded fixtures."""
 
     if not path.exists():
-        return default_provider_configuration(live_social=live_social)
+        return default_provider_configuration(
+            live_social=live_social, live_market=live_market
+        )
     if not path.is_file():
         raise ValueError("provider configuration path must be a regular file")
     return ProviderConfiguration.from_json_file(path)

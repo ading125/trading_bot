@@ -307,13 +307,22 @@ class AnalysisDecision(StrEnum):
     INSUFFICIENT_EVIDENCE = "insufficient_evidence"
 
 
+class PolicyRelevance(StrEnum):
+    NONE = "none"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
 class StructuredAnalysis(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     ticker: Ticker
     decision: AnalysisDecision
     growth_score: int = Field(ge=0, le=100)
     evidence_quality: int = Field(ge=0, le=100)
+    policy_relevance: PolicyRelevance
     catalysts: tuple[str, ...]
+    earnings_assessment: str
     bullish_thesis: str
     bearish_case: str
     risks: tuple[str, ...]

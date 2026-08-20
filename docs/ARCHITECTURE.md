@@ -1,7 +1,7 @@
 # Architecture
 
-**Status:** Milestones 1–3 implemented; later components proposed<br>
-**Last updated:** 2026-08-19
+**Status:** Milestones 1–5 implemented; later components proposed<br>
+**Last updated:** 2026-08-20
 
 ## Components
 
@@ -48,6 +48,22 @@ The implemented CivicTracker path follows that boundary: transport adapters
 return `SocialPostRecord`; `CivicTrackerCollector` owns paging and job leases;
 `SocialPostRepository` owns deduplication, revisions, checkpoints, health, and
 collection summaries; read-only FastAPI routes expose recent posts and health.
+
+The implemented market path follows the same boundary: `YahooFinanceProvider`
+normalizes synchronous SDK payloads on a bounded worker pool;
+`MarketDataCollector` owns provider pinning, leases, incremental ranges, and the
+validation gate; `MarketDataRepository` owns canonical DuckDB rows, revisions,
+quarantine, coverage cursors, and atomic Parquet publication. Read-only routes
+expose market status, bars, and dataset metadata. The background market poller
+is disabled unless explicitly enabled.
+
+The implemented candidate path keeps extraction separate from verification.
+`CompanyResolver` consumes versioned aliases and the provider-neutral symbol
+lookup capability; `CandidateRegistryService` unions direct and resolved sources,
+owns refresh leases and expiry reconciliation, and writes exact evidence excerpts.
+`CandidateRepository` persists aliases, resolution alternatives/manual-review
+states, candidate evidence, active candidates, and refresh summaries. No resolver
+or candidate service imports `yfinance`.
 
 ## Provider subsystem
 

@@ -1,7 +1,7 @@
 # Provider Framework
 
-**Status:** Milestone 2 implemented with recorded fixture adapters<br>
-**Last updated:** 2026-08-17
+**Status:** Provider framework plus CivicTracker and Yahoo adapters implemented<br>
+**Last updated:** 2026-08-20
 
 ## Purpose
 
@@ -68,4 +68,8 @@ source-bounded structured CVX analysis. These providers make contract tests
 deterministic; they are not live market-data sources.
 
 The live CivicTracker JSON adapter and its HTML fallback are implemented in
-Milestone 3. Yahoo and hosted-LLM adapters remain later milestones.
+Milestone 3. The Yahoo market/event/symbol adapter is implemented in Milestone 4
+and is used through the provider-neutral resolver in Milestone 5. The recorded
+structured-LLM provider now exercises the complete Milestone 6 evidence,
+validation, caching, persistence, API, and dashboard path. A live hosted-LLM
+adapter and encrypted credential unlock flow remain pending a provider choice.

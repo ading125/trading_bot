@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import inspect
 from typing import Any, TypeVar, cast
 
 from investing_bot.models import (
@@ -130,6 +131,23 @@ class ProviderManager:
                 key=lambda item: (item.capability, item.provider_id),
             )
         )
+
+    async def close(self) -> None:
+        """Release optional resources owned by configured provider singletons."""
+
+        seen: set[str] = set()
+        for selection in self.configuration.selections.values():
+            for target in selection.ordered_targets:
+                if target.provider_id in seen:
+                    continue
+                seen.add(target.provider_id)
+                provider = self.registry.create(target.provider_id)
+                close = getattr(provider, "close", None)
+                if close is None:
+                    continue
+                result = close()
+                if inspect.isawaitable(result):
+                    await result
 
     async def pin(self, capability: ProviderCapability, *, run_id: str) -> PinnedProvider:
         """Select once before work begins and preserve every failed attempt."""

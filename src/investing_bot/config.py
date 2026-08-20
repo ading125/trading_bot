@@ -42,6 +42,19 @@ class AppSettings(BaseSettings):
     civictracker_timeout_seconds: float = Field(default=15.0, ge=1, le=60)
     civictracker_retries: int = Field(default=2, ge=0, le=5)
     civictracker_collection_enabled: bool = True
+    yahoo_repair_enabled: bool = False
+    yahoo_timeout_seconds: float = Field(default=15.0, ge=1, le=60)
+    yahoo_retries: int = Field(default=2, ge=0, le=5)
+    market_collection_enabled: bool = False
+    market_poll_seconds: int = Field(default=3_600, ge=900, le=86_400)
+    market_seed_symbols: str = "SPY,AAPL,MSFT,CVX"
+    market_daily_history_days: int = Field(default=730, ge=30, le=7_300)
+    market_intraday_history_days: int = Field(default=5, ge=1, le=59)
+    candidate_refresh_enabled: bool = True
+    candidate_refresh_seconds: int = Field(default=900, ge=300, le=86_400)
+    analysis_refresh_enabled: bool = True
+    analysis_refresh_seconds: int = Field(default=3_600, ge=900, le=86_400)
+    analysis_seed_symbols: str = "CVX"
 
     @field_validator("data_dir")
     @classmethod
@@ -77,6 +90,34 @@ class AppSettings(BaseSettings):
     @property
     def provider_config_path(self) -> Path:
         return self.data_dir / self.provider_config_name
+
+    @property
+    def parsed_analysis_seed_symbols(self) -> tuple[str, ...]:
+        return tuple(
+            dict.fromkeys(
+                symbol.strip().upper()
+                for symbol in self.analysis_seed_symbols.split(",")
+                if symbol.strip()
+            )
+        )
+
+    @property
+    def market_raw_cache_path(self) -> Path:
+        return self.data_dir / "cache" / "yahoo"
+
+    @property
+    def market_dataset_path(self) -> Path:
+        return self.data_dir / "market"
+
+    @property
+    def parsed_market_seed_symbols(self) -> tuple[str, ...]:
+        symbols = tuple(
+            symbol.strip().upper() for symbol in self.market_seed_symbols.split(",")
+            if symbol.strip()
+        )
+        if not symbols or len(set(symbols)) != len(symbols):
+            raise ValueError("market_seed_symbols must contain unique comma-separated symbols")
+        return symbols
 
 
 @lru_cache(maxsize=1)

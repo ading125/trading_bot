@@ -401,14 +401,24 @@ class RecordedFixtureProvider:
                 "decision": "insufficient_evidence",
                 "growth_score": 0,
                 "evidence_quality": 0,
+                "policy_relevance": "none",
                 "catalysts": [],
+                "earnings_assessment": "",
                 "bullish_thesis": "",
                 "bearish_case": "",
                 "risks": [],
                 "uncertainties": ["No recorded analysis fixture"],
                 "source_ids": [],
             }
-        raw = {**raw, "source_ids": [item for item in raw["source_ids"] if item in allowed_ids]}
+        mapped_source_ids = [
+            item for item in raw["source_ids"] if item in allowed_ids
+        ]
+        if raw["source_ids"] and not mapped_source_ids and request.evidence:
+            # The packaged fixture names its recorded source, while application
+            # evidence uses durable hashed IDs. Publish only an ID that was
+            # actually supplied in this request.
+            mapped_source_ids = [request.evidence[0].source_id]
+        raw = {**raw, "source_ids": mapped_source_ids}
         event_at = max(item.observed_at for item in request.evidence)
         record = self._validate(
             StructuredAnalysis,
@@ -442,7 +452,7 @@ class RecordedFixtureProvider:
                 provider_record_id=str(raw["id"]),
                 event_at=event_at,
                 known_available_at=known_available_at or event_at,
-                retrieved_at=self._retrieved_at,
+                retrieved_at=max(self._retrieved_at, known_available_at or event_at),
                 raw_payload_hash=payload_hash,
                 schema_version=self.manifest.schema_versions[capability],
                 adapter_version=self.manifest.adapter_version,

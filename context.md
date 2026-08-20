@@ -1,7 +1,7 @@
 # Project Context
 
-**Status:** Approved product and architecture direction<br>
-**Last updated:** 2026-08-17
+**Status:** Milestones 1–5 implemented<br>
+**Last updated:** 2026-08-20
 
 ## Purpose
 
@@ -94,5 +94,24 @@ The current environment has a Ryzen 5 3600, 12 logical CPUs, approximately 8 GB 
 
 - Milestone 1 provides the FastAPI/DuckDB/container foundation and persistent job runs.
 - Milestone 2 provides provider-neutral contracts, a packaged registry, per-capability configuration, health checks, pinning, fallback provenance, and recorded fixture providers.
-- The running dashboard currently shows system and provider-contract health; it does not yet collect live market evidence or publish investment setups.
+- Milestone 3 provides live CivicTracker JSON collection, durable post revisions,
+  boundary-aware polling, health history, and a schema-validated HTML fallback.
+- Milestone 4 provides the replaceable Yahoo Finance adapter, point-in-time S&P
+  500 snapshots, market/event records, raw caches, validation/quarantine,
+  incremental coverage cursors, DuckDB metadata, canonical Parquet publication,
+  and read-only market APIs/dashboard status.
+- Milestone 5 provides versioned aliases, deterministic organization extraction,
+  a bounded AI-extraction seam, provider-verified ticker resolution,
+  ambiguity/manual-review states, exact source passages, and an expiring
+  candidate union across S&P membership, CivicTracker, news, and earnings.
+- The first Milestone 6 vertical slice provides bounded/deduplicated evidence
+  packages, strict structured-output and citation validation, provider-aware
+  caching, immutable assessment history, prospective 5/10/20-session outcome
+  slots, read-only analysis APIs, background CVX fixture analysis, and dashboard
+  thesis/score/risk presentation. No external AI provider is called yet.
+- A live hosted-LLM adapter and Argon2id/authenticated-encryption credential
+  unlock flow require an explicit provider choice before the rest of Milestone 6
+  can be called complete.
+- Live market polling is intentionally opt-in and initially limited to a
+  configurable seed watchlist. No investment setup is published yet.
 - Docker acceptance checks remain pending in an environment with Docker available.

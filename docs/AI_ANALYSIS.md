@@ -1,7 +1,7 @@
 # AI Analysis
 
-**Status:** Version-one AI contract<br>
-**Last updated:** 2026-08-06
+**Status:** Version-one contract and fixture-backed vertical slice implemented; live hosted adapter pending<br>
+**Last updated:** 2026-08-20
 
 ## Role
 
@@ -94,3 +94,19 @@ Dashboard reporting must separate:
 ## Future learning
 
 Once enough clean observations exist, the saved records can support a statistical model trained on point-in-time features and forward returns. Any such model must be walk-forward tested. Fine-tuning or historical-case retrieval is optional future work, not a prerequisite.
+
+## Implemented vertical slice
+
+Migration 5 stores immutable evidence packages, validated assessment history,
+provider/configuration lineage, cache keys, and empty 5/10/20-session outcome
+slots. `AnalysisEvidenceBuilder` bounds and deduplicates active candidate
+evidence. `GrowthAnalysisService` pins the structured-LLM provider, reuses an
+assessment only when evidence, prompt/schema, provider, adapter, and provider
+configuration are unchanged, and rejects uncited output or a `qualify` decision
+supported only by CivicTracker/S&P-membership evidence.
+
+The runtime currently analyzes the bounded `CVX` seed with the deterministic
+recorded provider after candidate refresh. This proves the complete application
+contract without sending data externally or requiring a secret. Selecting and
+integrating a live hosted provider plus the encrypted unlock flow is the next
+increment and requires an explicit provider decision.

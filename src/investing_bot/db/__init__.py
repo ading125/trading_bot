@@ -9,6 +9,28 @@ from investing_bot.db.civictracker import (
     SocialPostRepository,
     StoredSocialPost,
 )
+from investing_bot.db.market import (
+    MarketDataRepository,
+    MarketDataset,
+    MarketStatus,
+    MarketWriteKind,
+)
+from investing_bot.db.candidates import (
+    Candidate,
+    CandidateEvidence,
+    CandidateRepository,
+    CandidateSourceType,
+    CompanyAlias,
+    EntityResolution,
+    ResolutionStatus,
+)
+from investing_bot.db.analysis import (
+    AIAssessment,
+    AnalysisEvidence,
+    AnalysisEvidencePackage,
+    AnalysisOutcome,
+    AnalysisRepository,
+)
 
 __all__ = [
     "Database",
@@ -19,6 +41,22 @@ __all__ = [
     "JobRunRepository",
     "JobStatus",
     "MigrationError",
+    "MarketDataRepository",
+    "MarketDataset",
+    "MarketStatus",
+    "MarketWriteKind",
+    "Candidate",
+    "CandidateEvidence",
+    "CandidateRepository",
+    "CandidateSourceType",
+    "CompanyAlias",
+    "EntityResolution",
+    "ResolutionStatus",
+    "AIAssessment",
+    "AnalysisEvidence",
+    "AnalysisEvidencePackage",
+    "AnalysisOutcome",
+    "AnalysisRepository",
     "PostWriteKind",
     "SocialPostRepository",
     "StoredSocialPost",

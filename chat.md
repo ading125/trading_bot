@@ -165,6 +165,80 @@ The following sections record settled decisions and their reasoning. They are no
   reporting `has_more=true`; treat that exact upstream response as the end of
   accessible public data rather than a failed run.
 
+## 2026-08-20 — Yahoo market and event data implementation
+
+- Pinned `yfinance==1.6.0` behind the existing market/news/earnings provider
+  contracts; downstream services remain unaware of Yahoo response shapes.
+- Added point-in-time S&P 500 universe snapshots plus Yahoo symbol translation
+  for share classes such as canonical `BRK.B` versus Yahoo `BRK-B`.
+- Chose DuckDB as the canonical catalog and revision ledger while publishing
+  validated OHLCV history to atomic, Zstandard-compressed Parquet partitions.
+- Added raw response caching, repair lineage, bounded retries/concurrency, daily
+  session semantics, completed 15-minute bars, quotes, corporate actions, news,
+  and earnings normalization.
+- Required whole-request validation before publication. Missing/partial,
+  duplicate, stale, out-of-range, or suspiciously discontinuous batches enter
+  quarantine and cannot replace accepted market history.
+- Added validated-through coverage cursors, separate from last observed bar, so
+  repeat runs do not repeatedly request weekend/holiday tails.
+- Kept broad live market polling opt-in. The initial enabled scope is a bounded,
+  configurable seed watchlist including SPY; this avoids an unreviewed 500-symbol
+  background load while preserving the full universe snapshot.
+- Added read-only market status, bar, and dataset APIs plus dashboard counts.
+- Verified 103 offline tests and a successful live SPY Yahoo health probe.
+
+## 2026-08-20 — Company resolution and candidate registry implementation
+
+- Added a packaged, versioned company-alias registry and augmented it with each
+  point-in-time S&P 500 snapshot rather than hard-coding the current universe.
+- Chose deterministic longest-alias, explicit-ticker, and legal-company-suffix
+  extraction as the first pass. The bounded AI extraction interface is present
+  but remains a no-op until the hosted-LLM milestone.
+- Required every unresolved name or suggested ticker to pass the configured
+  `SymbolLookupProvider`; neither source text nor future AI output may directly
+  manufacture a tradable symbol.
+- Made ambiguity a durable manual-review state. Close provider alternatives or
+  aliases mapping to multiple tickers cannot silently select a candidate.
+- Rejected suggestions classified as people, places, agencies, industries, or
+  ungrounded names before ticker lookup.
+- Implemented an expiring candidate union across the latest S&P 500 snapshot,
+  CivicTracker passages, canonical news, and canonical earnings records.
+- Stored exact source excerpts, source IDs/URLs, event and observation times,
+  extraction method, resolution identity, relevance, and expiration for every
+  candidate-evidence link.
+- Reconciled edited/deleted sources immediately and deactivated evidence that is
+  no longer present, instead of waiting only for its time-based expiry.
+- Added read-only candidate, evidence, and resolution APIs plus dashboard status.
+- Verified 108 offline tests and a successful live Chevron-to-CVX Yahoo lookup.
+
+## 2026-08-20 — Fixture-backed AI growth-analysis vertical slice
+
+- Added migration 5 for immutable evidence packages, assessment history,
+  provider/configuration lineage, provider-aware cache keys, and prospective
+  5/10/20-session outcome records.
+- Bounded analysis inputs to active, source-attributed candidate evidence;
+  deduplicated repeated text and preserved the exact IDs, passages, URLs, event
+  times, observation times, source types, and relevance used in each assessment.
+- Kept prompt construction, caching, validation, and qualification outside the
+  provider adapter. The analysis service pins the structured-LLM capability for
+  each run and rejects unknown citations, uncited publishable output, low-score
+  `qualify` decisions, and qualification based only on CivicTracker or S&P
+  membership evidence.
+- Reused cached output only when the evidence hash, prompt/schema versions,
+  provider, adapter version, and provider configuration are unchanged.
+- Extended the canonical analysis contract with policy relevance and an
+  earnings assessment, matching the documented version-one schema.
+- Added bounded background analysis for `CVX`, read-only latest/history/evidence
+  and outcome APIs, and a dashboard card showing decision, scores, thesis, bear
+  case, catalysts, risks, uncertainty, provider, timestamp, and evidence link.
+- Used the recorded structured-analysis fixture for the first safe end-to-end
+  path. No external source data was sent to an AI service and no API key was
+  requested or stored. A live hosted provider and authenticated encrypted
+  credential unlock flow remain pending an explicit provider choice.
+- Verified 111 offline tests, migration 5 on the existing database, a live local
+  CVX `investigate` assessment, and HTTP 200 responses for the dashboard,
+  assessment API, and cited-evidence API.
+
 ## Current assumptions to validate experimentally
 
 - The first baseline entry/exit algorithm should be simple, explainable, and parameterized; trend-pullback and breakout variants are leading candidates.

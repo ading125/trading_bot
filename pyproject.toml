@@ -10,14 +10,17 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.15,<5",
+    "curl_cffi==0.16.0",
     "duckdb>=1.5.4,<1.6",
     "fastapi>=0.139.2,<0.140",
     "httpx>=0.28.1,<0.29",
     "jinja2>=3.1.6,<4",
+    "pandas>=3.0.5,<3.1",
     "pydantic>=2.13.4,<3",
     "pydantic-settings>=2.14.2,<3",
     "pytz>=2025.2,<2027",
     "uvicorn>=0.51,<0.52",
+    "yfinance==1.6.0",
 ]
 
 [project.optional-dependencies]
@@ -36,6 +39,7 @@ where = ["src"]
 investing_bot = [
     "db/migrations/*.sql",
     "providers/fixtures/data/*.json",
+    "services/data/*.json",
     "web/static/*.css",
     "web/templates/*.html",
 ]
