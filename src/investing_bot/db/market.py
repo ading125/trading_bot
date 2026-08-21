@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from hashlib import sha256
 import json
@@ -559,6 +559,40 @@ class MarketDataRepository:
                 as_of,
                 as_of,
                 limit,
+            ],
+        )
+        fields = tuple(StrategyBar.model_fields)
+        return tuple(
+            StrategyBar(**dict(zip(fields, row, strict=True))) for row in rows
+        )
+
+    def research_bars(
+        self,
+        *,
+        provider_id: str,
+        symbol: str,
+        start: date,
+        end: date,
+    ) -> tuple[StrategyBar, ...]:
+        """Return one immutable adjusted daily history for a research run."""
+
+        rows = self._database.fetchall(
+            """
+            SELECT symbol, interval, bar_start, bar_end, session_date,
+                   open, high, low, close, volume, known_available_at,
+                   provider_id, repaired
+            FROM market_bars
+            WHERE provider_id=? AND symbol=? AND interval=? AND adjustment=?
+              AND session_date BETWEEN ? AND ?
+            ORDER BY bar_end
+            """,
+            [
+                provider_id,
+                symbol.upper(),
+                BarInterval.DAY_1.value,
+                PriceAdjustment.ADJUSTED.value,
+                start,
+                end,
             ],
         )
         fields = tuple(StrategyBar.model_fields)

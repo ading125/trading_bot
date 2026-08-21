@@ -13,10 +13,12 @@ from fastapi.templating import Jinja2Templates
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from investing_bot.models import (
+    BacktestRequest,
     BarInterval,
     PriceAdjustment,
     ProviderCapability,
     StrategyManifest,
+    WalkForwardExperimentRequest,
 )
 from investing_bot.providers.contracts import (
     ConnectionTestResult,
@@ -27,14 +29,22 @@ from investing_bot.db import (
     AIAssessment,
     AnalysisEvidencePackage,
     AnalysisOutcome,
+    BacktestRunSummary,
     Candidate,
     CandidateEvidence,
     EntityResolution,
     MarketDataset,
     MarketStatus,
     ResolutionStatus,
+    StoredBacktestExperiment,
+    StoredBacktestRun,
     StoredSocialPost,
     StoredStrategyEvaluation,
+)
+from investing_bot.services import (
+    BacktestExecution,
+    BacktestResearchError,
+    ExperimentExecution,
 )
 
 
@@ -195,6 +205,20 @@ class StrategyEvaluationsResponse(BaseModel):
     count: int = Field(ge=0)
 
 
+class BacktestRunsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: tuple[BacktestRunSummary, ...]
+    count: int = Field(ge=0)
+
+
+class BacktestExperimentsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: tuple[StoredBacktestExperiment, ...]
+    count: int = Field(ge=0)
+
+
 @router.get("/api/v1/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     """Process-liveness endpoint that does not depend on external services."""
@@ -267,6 +291,16 @@ async def dashboard(request: Request) -> HTMLResponse:
         if hasattr(request.app.state, "strategy_evaluations")
         else []
     )
+    backtest_runs = (
+        request.app.state.backtests.list_run_summaries(limit=5)
+        if hasattr(request.app.state, "backtests")
+        else []
+    )
+    backtest_experiments = (
+        request.app.state.backtests.list_experiments(limit=5)
+        if hasattr(request.app.state, "backtests")
+        else []
+    )
     credentials = (
         provider_manager.credentials if provider_manager is not None else None
     )
@@ -303,6 +337,18 @@ async def dashboard(request: Request) -> HTMLResponse:
             "strategy_evaluation_count": (
                 request.app.state.strategy_evaluations.count()
                 if hasattr(request.app.state, "strategy_evaluations")
+                else 0
+            ),
+            "backtest_runs": backtest_runs,
+            "backtest_experiments": backtest_experiments,
+            "backtest_run_count": (
+                request.app.state.backtests.run_count()
+                if hasattr(request.app.state, "backtests")
+                else 0
+            ),
+            "backtest_experiment_count": (
+                request.app.state.backtests.experiment_count()
+                if hasattr(request.app.state, "backtests")
                 else 0
             ),
             "credential_status": credential_status,
@@ -574,6 +620,79 @@ async def strategy_setup_history(
     return StrategyEvaluationsResponse(items=items, count=len(items))
 
 
+@router.get("/api/v1/backtests", response_model=BacktestRunsResponse)
+async def backtest_runs(
+    request: Request, limit: int = Query(default=100, ge=1, le=500)
+) -> BacktestRunsResponse:
+    items = tuple(request.app.state.backtests.list_run_summaries(limit=limit))
+    return BacktestRunsResponse(items=items, count=len(items))
+
+
+@router.post("/api/v1/backtests/run", response_model=BacktestExecution)
+def run_backtest(
+    request: Request, payload: BacktestRequest
+) -> BacktestExecution:
+    try:
+        return request.app.state.backtest_service.execute(payload)
+    except (BacktestResearchError, ValueError) as exc:
+        code = (
+            status.HTTP_409_CONFLICT
+            if "already running" in str(exc)
+            else status.HTTP_422_UNPROCESSABLE_CONTENT
+        )
+        raise HTTPException(status_code=code, detail=str(exc)) from exc
+
+
+@router.get(
+    "/api/v1/backtests/experiments",
+    response_model=BacktestExperimentsResponse,
+)
+async def backtest_experiments(
+    request: Request, limit: int = Query(default=100, ge=1, le=500)
+) -> BacktestExperimentsResponse:
+    items = tuple(request.app.state.backtests.list_experiments(limit=limit))
+    return BacktestExperimentsResponse(items=items, count=len(items))
+
+
+@router.post(
+    "/api/v1/backtests/experiments/run",
+    response_model=ExperimentExecution,
+)
+def run_backtest_experiment(
+    request: Request, payload: WalkForwardExperimentRequest
+) -> ExperimentExecution:
+    try:
+        return request.app.state.backtest_service.execute_experiment(payload)
+    except (BacktestResearchError, ValueError) as exc:
+        code = (
+            status.HTTP_409_CONFLICT
+            if "already running" in str(exc)
+            else status.HTTP_422_UNPROCESSABLE_CONTENT
+        )
+        raise HTTPException(status_code=code, detail=str(exc)) from exc
+
+
+@router.get(
+    "/api/v1/backtests/experiments/{experiment_hash}",
+    response_model=StoredBacktestExperiment,
+)
+async def backtest_experiment(
+    request: Request, experiment_hash: str
+) -> StoredBacktestExperiment:
+    stored = request.app.state.backtests.get_experiment(_sha256(experiment_hash))
+    if stored is None:
+        raise HTTPException(status_code=404, detail="backtest experiment not found")
+    return stored
+
+
+@router.get("/api/v1/backtests/{run_hash}", response_model=StoredBacktestRun)
+async def backtest_run(request: Request, run_hash: str) -> StoredBacktestRun:
+    stored = request.app.state.backtests.get_run(_sha256(run_hash))
+    if stored is None:
+        raise HTTPException(status_code=404, detail="backtest run not found")
+    return stored
+
+
 @router.get("/api/v1/analyses/{symbol}", response_model=AIAssessment)
 async def latest_analysis(request: Request, symbol: str) -> AIAssessment:
     normalized = _ticker(symbol)
@@ -626,3 +745,9 @@ def _ticker(symbol: str) -> str:
     if not re.fullmatch(r"[A-Z][A-Z0-9.-]{0,11}", normalized):
         raise HTTPException(status_code=422, detail="invalid ticker symbol")
     return normalized
+
+
+def _sha256(value: str) -> str:
+    if not re.fullmatch(r"[0-9a-f]{64}", value):
+        raise HTTPException(status_code=422, detail="invalid research identifier")
+    return value

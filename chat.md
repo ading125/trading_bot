@@ -329,6 +329,44 @@ The following sections record settled decisions and their reasoning. They are no
   intraday confirmation, stale-state preservation, cache reuse, persistence,
   and API/dashboard contracts.
 
+## 2026-08-21 — Event-driven backtester and research acceptance
+
+- Added a deterministic simulated clock that exposes only completed canonical
+  bars known by each timestamp and reuses the same trusted strategy plugins as
+  current setup research.
+- Made close-derived entries ineligible until a later bar, eliminating same-close
+  execution. Added explicit next-bar stop-limit entry behavior and recorded gap,
+  untriggered, insufficient-cash, and end-of-period outcomes.
+- Implemented fractional long-only position accounting without leverage,
+  commissions, adverse slippage, protective stops, profit targets, trailing
+  stops, trend/time exits, conservative stop-first daily-bar ambiguity, and
+  deterministic final liquidation.
+- Persisted immutable request, data, parameter, and run hashes plus every order,
+  fill, closed trade, equity point, cost, metric, benchmark comparison,
+  methodology statement, and disclosure in migration 8.
+- Added total/CAGR return, win rate, average wins/losses, payoff, expectancy,
+  profit factor, drawdown/recovery, volatility, Sharpe, exposure, turnover,
+  holding time, yearly results, four market regimes, and identical-period SPY
+  comparison.
+- Added explicit development, validation, and final out-of-sample period
+  contracts and durable parameter experiment history. All candidate variants
+  run in development/validation, selection uses development only, nearby
+  variants must show validation stability, and final out-of-sample data runs
+  once for the selected candidate.
+- Required positive validation and out-of-sample expectancy, minimum holdout
+  trades, acceptable drawdown, and nearby-parameter stability before a report
+  can say alerts may be enabled. Passing never edits the source-controlled
+  strategy manifest automatically.
+- Kept historical AI outcomes completely separate: deterministic reports cannot
+  reconstruct AI choices and explicitly disclose current-constituent
+  survivorship bias and daily-bar path limitations.
+- Added run/experiment APIs and a separate dashboard report section with clear
+  research-only, gate-failed, and no-report states.
+- Verified 137 offline tests, including intentional future-output rejection,
+  next-bar timing, cash/cost invariants, stop/target/trailing/time paths,
+  deterministic caching, immutable persistence, walk-forward isolation, API
+  contracts, and the unvalidated-alert gate.
+
 ## Open decisions
 
 No decision blocks building the ingestion, storage, AI-analysis, strategy-plugin, and backtest frameworks. Before calling entry/exit output production-ready, the baseline strategy family and its parameter acceptance criteria must be validated through research.

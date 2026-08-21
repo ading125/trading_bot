@@ -1,6 +1,6 @@
 # Project Outline
 
-**Status:** Ingestion through deterministic strategy hypotheses implemented; backtesting is next<br>
+**Status:** Ingestion through deterministic walk-forward backtesting implemented; operations is next<br>
 **Last updated:** 2026-08-21
 
 ## System flow

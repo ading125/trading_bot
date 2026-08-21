@@ -91,6 +91,11 @@
           <p class="detail">Deterministic hypotheses · live alerts disabled</p>
         </article>
         <article>
+          <p class="label">Backtest research</p>
+          <p class="value">{{ backtest_run_count }}</p>
+          <p class="detail">{{ backtest_experiment_count }} walk-forward experiments</p>
+        </article>
+        <article>
           <p class="label">Credential vault</p>
           <p class="value">
             {% if credential_status and credential_status.unlocked %}Unlocked
@@ -273,6 +278,103 @@
             No AI-qualified candidate with provider-consistent completed market
             data has produced a setup evaluation. No setup is a valid result.
           </p>
+          {% endfor %}
+        </div>
+      </section>
+      <section class="provider-section" aria-labelledby="backtest-heading">
+        <p class="eyebrow">Historical deterministic research</p>
+        <h3 id="backtest-heading">Walk-forward backtest reports</h3>
+        <p class="backtest-warning">
+          These reports test price rules only. They do not reconstruct historical
+          AI choices, and a software test passing does not validate profitability.
+        </p>
+        <div class="backtest-list">
+          {% for experiment in backtest_experiments %}
+          <article class="backtest-card">
+            <header class="backtest-header">
+              <div>
+                <p class="analysis-symbol">{{ experiment.report.strategy_id | replace('_', ' ') | title }}</p>
+                <h4>Walk-forward acceptance report</h4>
+              </div>
+              <span class="acceptance-state acceptance-{{ 'passed' if experiment.report.acceptance.passed else 'failed' }}">
+                {{ 'research gate passed' if experiment.report.acceptance.passed else 'research gate not passed' }}
+              </span>
+            </header>
+            <p class="setup-summary">
+              Selected <strong>{{ experiment.report.acceptance.selected_candidate_id }}</strong>
+              using development results, then kept validation and final out-of-sample
+              performance separate.
+            </p>
+            {% for trial in experiment.report.trials %}
+              {% if trial.candidate.candidate_id == experiment.report.acceptance.selected_candidate_id %}
+              <div class="backtest-metrics">
+                <div>
+                  <span>Development return</span>
+                  <strong>{{ '%.2f' | format(trial.development_metrics.total_return_pct) }}%</strong>
+                </div>
+                <div>
+                  <span>Validation return</span>
+                  <strong>{{ '%.2f' | format(trial.validation_metrics.total_return_pct) }}%</strong>
+                </div>
+                <div>
+                  <span>Out-of-sample return</span>
+                  <strong>{{ '%.2f' | format(trial.out_of_sample_metrics.total_return_pct) }}%</strong>
+                </div>
+                <div>
+                  <span>OOS max drawdown</span>
+                  <strong>{{ '%.2f' | format(trial.out_of_sample_metrics.maximum_drawdown_pct) }}%</strong>
+                </div>
+                <div>
+                  <span>OOS trades</span>
+                  <strong>{{ trial.out_of_sample_metrics.trade_count }}</strong>
+                </div>
+                <div>
+                  <span>Nearby parameters</span>
+                  <strong>{{ experiment.report.acceptance.nearby_parameter_sets_tested }}</strong>
+                </div>
+              </div>
+              {% endif %}
+            {% endfor %}
+            {% if experiment.report.acceptance.reasons %}
+            <p class="acceptance-reasons">
+              Gate blockers: {{ experiment.report.acceptance.reasons | join(', ') | replace('_', ' ') }}
+            </p>
+            {% endif %}
+            <div class="analysis-footer">
+              <span>{{ experiment.report.provider_id }} · v{{ experiment.report.strategy_version }}</span>
+              <span>AI outcomes excluded</span>
+              <a href="/api/v1/backtests/experiments/{{ experiment.report.experiment_hash }}">View complete experiment</a>
+            </div>
+          </article>
+          {% else %}
+            {% for run in backtest_runs %}
+            <article class="backtest-card">
+              <header class="backtest-header">
+                <div>
+                  <p class="analysis-symbol">{{ run.strategy_id | replace('_', ' ') | title }}</p>
+                  <h4>{{ run.period.name.value | replace('_', ' ') | title }} run</h4>
+                </div>
+                <span class="research-only">research only</span>
+              </header>
+              <div class="backtest-metrics">
+                <div><span>Total return</span><strong>{{ '%.2f' | format(run.total_return_pct) }}%</strong></div>
+                <div><span>Max drawdown</span><strong>{{ '%.2f' | format(run.maximum_drawdown_pct) }}%</strong></div>
+                <div><span>Trades</span><strong>{{ run.trade_count }}</strong></div>
+                <div><span>SPY return</span><strong>{{ '%.2f' | format(run.benchmark_return_pct) }}%</strong></div>
+              </div>
+              <div class="analysis-footer">
+                <span>{{ run.period.start }}–{{ run.period.end }}</span>
+                <span>AI outcomes excluded</span>
+                <a href="/api/v1/backtests/{{ run.run_hash }}">View complete run</a>
+              </div>
+            </article>
+            {% else %}
+            <p class="detail empty-state backtest-empty">
+              No deterministic backtest has been run yet. Until a walk-forward
+              report exists, both strategy baselines remain unvalidated and live
+              alerts stay disabled.
+            </p>
+            {% endfor %}
           {% endfor %}
         </div>
       </section>

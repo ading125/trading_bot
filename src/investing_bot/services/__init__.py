@@ -51,6 +51,12 @@ from investing_bot.services.strategy import (
     StrategyEvaluationSummary,
     StrategyPollingService,
 )
+from investing_bot.services.backtest import (
+    BacktestExecution,
+    BacktestResearchError,
+    BacktestResearchService,
+    ExperimentExecution,
+)
 
 __all__ = [
     "CivicTrackerCollector",
@@ -69,6 +75,10 @@ __all__ = [
     "StrategyEvaluationService",
     "StrategyEvaluationSummary",
     "StrategyPollingService",
+    "BacktestExecution",
+    "BacktestResearchError",
+    "BacktestResearchService",
+    "ExperimentExecution",
     "CompanyResolver",
     "DeterministicOrganizationExtractor",
     "NoopOrganizationExtractionFallback",

@@ -1,6 +1,6 @@
 # Strategy and Backtesting
 
-**Status:** Strategy framework and two baseline hypotheses implemented; backtest validation pending<br>
+**Status:** Strategy framework and backtest research engine implemented; baseline acceptance remains evidence-dependent<br>
 **Last updated:** 2026-08-21
 
 ## Strategy responsibility
@@ -64,6 +64,14 @@ Parameters are hypotheses. No default is labeled profitable until it passes the 
 
 Use an event-driven simulated clock and the same strategy implementation used by current research. A baseline portfolio simulation uses configurable starting capital, long-only positions, no leverage, fractional shares, and explicit costs.
 
+The implemented daily simulator treats a close-derived signal as information
+available only after that close. Its entry order becomes eligible one microsecond
+later and can fill only against a subsequent completed bar. Protective exits take
+priority over queued discretionary exits; when one daily bar touches both a stop
+and target, the stop is applied first. Gap fills use the opening price, adverse
+slippage is embedded in execution price, commissions are charged separately, and
+all remaining positions are liquidated at the documented end-of-test boundary.
+
 For each simulated decision:
 
 1. Construct the eligible universe known at that timestamp.
@@ -101,6 +109,14 @@ Win rate is reported but never used alone. At minimum calculate:
 - Control multiple-testing/data-mining risk and preserve every experiment, not only winners.
 - Test on a point-in-time universe where possible; label current-constituent tests as survivorship-biased.
 - Do not include AI decisions in historical claims unless the exact historical assessment was captured then.
+
+The implemented walk-forward report evaluates all parameter candidates in the
+development and validation periods. Selection uses development metrics only;
+nearby variants must remain positive in validation. The final out-of-sample
+period is then run once for the selected candidate, preventing repeated peeking
+at the final holdout. The mechanical gate also checks positive validation and
+out-of-sample expectancy, minimum trade counts, and a configured drawdown limit.
+Passing the report does not mutate strategy code or enable alerts automatically.
 
 ## Publication gate
 

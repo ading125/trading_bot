@@ -1,6 +1,6 @@
 # Project Context
 
-**Status:** Milestones 1–7 implemented; Milestone 8 backtesting is next<br>
+**Status:** Milestones 1–8 implemented; Milestone 9 operations is next<br>
 **Last updated:** 2026-08-21
 
 ## Purpose
@@ -122,7 +122,17 @@ The current environment has a Ryzen 5 3600, 12 logical CPUs, approximately 8 GB 
   provider, persist complete explanations and entry/stop/exit intents, cache
   unchanged inputs, reject future or mixed-provider bars, and preserve the last
   state while blocking confirmation on stale data.
+- Milestone 8 provides an event-driven daily-bar simulator using the same
+  strategy interface, with next-bar-only close-derived entries, long-only
+  fractional position accounting, commissions, slippage, stops, targets,
+  trailing/time/trend exits, end liquidation, SPY comparison, equity curves,
+  drawdown/return/expectancy/payoff/profit-factor/Sharpe/exposure/turnover and
+  regime metrics, deterministic run hashes, and immutable order/fill/trade/run
+  history. Walk-forward experiments preserve parameter trials, keep development,
+  validation, and final out-of-sample results separate, run final holdout data
+  only for the selected candidate, and never automatically enable alerts.
 - Live market polling is intentionally opt-in and initially limited to a
   configurable seed watchlist. Strategy output is explicitly unvalidated
-  hypothesis research; live alerts remain disabled until Milestone 8 acceptance.
+  hypothesis research; live alerts remain disabled unless a persisted research
+  acceptance report passes and the source-controlled manifest is separately reviewed.
 - Docker acceptance checks remain pending in an environment with Docker available.

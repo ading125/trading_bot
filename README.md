@@ -1,6 +1,6 @@
 # Investing Bot
 
-**Status:** Milestones 1–7 implemented; Milestone 8 backtesting is next<br>
+**Status:** Milestones 1–8 implemented; Milestone 9 operations is next<br>
 **Last updated:** 2026-08-21
 
 Investing Bot is a private, locally hosted stock-research tool. It discovers public companies from current news, earnings activity, the S&P 500, and selected political-policy sources; uses an AI model to evaluate growth potential; and passes qualified companies to a deterministic, backtested strategy that calculates potential entries, exits, and invalidation levels.
@@ -139,7 +139,20 @@ machine-readable explanations. Evaluations and history are available at
 research; live alerts remain disabled until Milestone 8 backtesting and
 acceptance checks pass.
 
-Verification: 129 offline tests cover provider contracts, CivicTracker
+Milestone 8 adds a deterministic event-driven backtester that reuses those same
+strategy plugins. It simulates next-bar entries, fractional long-only positions,
+commissions, adverse slippage, protective and trailing stops, targets,
+trend/time exits, end-of-test liquidation, daily equity, and an identical-period
+SPY comparison. Every run stores its parameters, data and run hashes, orders,
+fills, trades, costs, equity curve, metrics, execution assumptions, and
+survivorship-bias disclosures. Walk-forward experiments preserve every nearby
+parameter trial, select using development results, check stability in validation,
+and run the final out-of-sample period once for the selected candidate. Historical
+AI decisions are explicitly excluded. Results are available through
+`/api/v1/backtests` and `/api/v1/backtests/experiments` and appear in a separate
+dashboard research section.
+
+Verification: 137 offline tests cover provider contracts, CivicTracker
 collection, Yahoo normalization, incremental market coverage,
 validation/quarantine, revision history, actual Parquet publication, deterministic
 company resolution, ambiguity/manual-review behavior, source provenance, and
@@ -148,7 +161,9 @@ political-only qualification rejection, credential encryption, wrong-secret and
 tamper rejection, locked-state isolation, unsafe-permission rejection, strict
 Groq request/response handling, token lineage, sanitized provider failures,
 strategy determinism, no-look-ahead/provider-isolation invariants, stale-state
-handling, evaluation caching, and nested setup persistence. Live
+handling, evaluation caching, nested setup persistence, next-bar execution,
+capital/cost reconciliation, stop/target/trailing/time exits, SPY comparison,
+walk-forward isolation, acceptance gating, and immutable experiment history. Live
 SPY and Chevron Yahoo checks and
 the local fixture-backed CVX analysis were smoke-tested successfully on
 2026-08-20.

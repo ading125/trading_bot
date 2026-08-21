@@ -61,13 +61,19 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
             strategies = await client.get("/api/v1/strategies")
             setups = await client.get("/api/v1/setups")
             setup_history = await client.get("/api/v1/setups/CVX/history")
+            backtests = await client.get("/api/v1/backtests")
+            experiments = await client.get("/api/v1/backtests/experiments")
+            missing_backtest = await client.get(f"/api/v1/backtests/{'a' * 64}")
+            missing_experiment = await client.get(
+                f"/api/v1/backtests/experiments/{'b' * 64}"
+            )
             dashboard = await client.get("/")
 
     assert health.status_code == 200
     assert health.json()["status"] == "ok"
     assert ready.status_code == 200
     assert ready.json()["status"] == "ready"
-    assert ready.json()["migration_version"] == 7
+    assert ready.json()["migration_version"] == 8
     assert providers.status_code == 200
     assert len(providers.json()["providers"]) == 6
     assert providers.json()["selections"]["daily_bars"]["primary"]["provider_id"] == (
@@ -110,6 +116,10 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
     )
     assert setups.json() == {"items": [], "count": 0}
     assert setup_history.json() == {"items": [], "count": 0}
+    assert backtests.json() == {"items": [], "count": 0}
+    assert experiments.json() == {"items": [], "count": 0}
+    assert missing_backtest.status_code == 404
+    assert missing_experiment.status_code == 404
     assert dashboard.status_code == 200
     assert "The local research service is running." in dashboard.text
     assert "No recommendation is generated" in dashboard.text
@@ -119,6 +129,9 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
     assert "Latest AI assessments" in dashboard.text
     assert "Technical strategy hypotheses" in dashboard.text
     assert "These baselines are implementation hypotheses" in dashboard.text
+    assert "Walk-forward backtest reports" in dashboard.text
+    assert "They do not reconstruct historical" in dashboard.text
+    assert "No deterministic backtest has been run yet" in dashboard.text
     assert "OFFLINE ANALYSIS — RECORDED FALLBACK" in dashboard.text
     assert "No analysis evidence is sent to a hosted AI." in dashboard.text
     assert "fixture_recorded · recorded-analysis-v1" in dashboard.text

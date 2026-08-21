@@ -32,6 +32,12 @@ from investing_bot.db.analysis import (
     AnalysisRepository,
 )
 from investing_bot.db.strategy import StoredStrategyEvaluation, StrategyRepository
+from investing_bot.db.backtest import (
+    BacktestRunSummary,
+    BacktestRepository,
+    StoredBacktestExperiment,
+    StoredBacktestRun,
+)
 
 __all__ = [
     "Database",
@@ -54,11 +60,15 @@ __all__ = [
     "EntityResolution",
     "ResolutionStatus",
     "AIAssessment",
+    "BacktestRepository",
+    "BacktestRunSummary",
     "AnalysisEvidence",
     "AnalysisEvidencePackage",
     "AnalysisOutcome",
     "AnalysisRepository",
     "StoredStrategyEvaluation",
+    "StoredBacktestExperiment",
+    "StoredBacktestRun",
     "StrategyRepository",
     "PostWriteKind",
     "SocialPostRepository",

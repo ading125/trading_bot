@@ -1,6 +1,6 @@
 # Implementation Plan
 
-**Status:** Milestones 1–7 implemented; Milestone 8 is next<br>
+**Status:** Milestones 1–8 implemented; Milestone 9 is next<br>
 **Last updated:** 2026-08-21
 
 ## Guiding approach
@@ -159,7 +159,9 @@ Completion criteria:
 
 ## Milestone 8 — Backtester and research acceptance
 
-**Implementation status:** Next milestone.
+**Implementation status:** Complete as of 2026-08-21. No baseline passed merely
+because the engine was implemented; alert eligibility requires a persisted
+walk-forward acceptance report and a separate source-controlled review.
 
 Deliverables:
 
@@ -176,6 +178,8 @@ Completion criteria:
 - Parameter-stability and out-of-sample reports are produced before a baseline may be enabled for current alerts.
 
 ## Milestone 9 — Intraday dashboard and operations
+
+**Implementation status:** Next milestone.
 
 Deliverables:
 

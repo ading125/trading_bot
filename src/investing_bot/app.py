@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from investing_bot.config import AppSettings, get_settings
 from investing_bot.db import (
     AnalysisRepository,
+    BacktestRepository,
     CandidateRepository,
     Database,
     JobRunRepository,
@@ -34,6 +35,7 @@ from investing_bot.web.routes import APP_VERSION, router
 from investing_bot.services import (
     AnalysisEvidenceBuilder,
     AnalysisPollingService,
+    BacktestResearchService,
     CandidatePollingService,
     CandidateRegistryService,
     CivicTrackerCollector,
@@ -92,6 +94,7 @@ def create_app(
             candidate_repository = CandidateRepository(database)
             analysis_repository = AnalysisRepository(database)
             strategy_repository = StrategyRepository(database)
+            backtest_repository = BacktestRepository(database)
             strategy_registry = build_default_strategy_registry()
             interrupted = repository.mark_running_jobs_interrupted()
             app.state.job_runs = repository
@@ -134,6 +137,7 @@ def create_app(
             app.state.analyses = analysis_repository
             app.state.strategy_evaluations = strategy_repository
             app.state.strategy_registry = strategy_registry
+            app.state.backtests = backtest_repository
             collector = CivicTrackerCollector(
                 provider_manager=provider_manager,
                 posts=post_repository,
@@ -177,6 +181,12 @@ def create_app(
                 jobs=repository,
             )
             app.state.strategy_service = strategy_service
+            app.state.backtest_service = BacktestResearchService(
+                market=market_repository,
+                strategies=strategy_registry,
+                repository=backtest_repository,
+                jobs=repository,
+            )
             if (
                 resolved_settings.environment != "test"
                 and resolved_settings.civictracker_collection_enabled
