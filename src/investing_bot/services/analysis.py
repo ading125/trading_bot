@@ -32,6 +32,10 @@ logger = logging.getLogger(__name__)
 PROMPT_VERSION = "growth_analysis.v1"
 OUTPUT_SCHEMA_VERSION = "structured_analysis.v1"
 JOB_TYPE_PREFIX = "ai_analysis"
+DEFAULT_MAX_EVIDENCE = 12
+DEFAULT_MAX_EVIDENCE_CHARS = 4_000
+DEFAULT_MAX_EVIDENCE_PER_SOURCE_TYPE = 6
+MAX_EVIDENCE_ITEM_CHARS = 1_000
 
 
 class AnalysisError(RuntimeError):
@@ -57,11 +61,21 @@ class AnalysisEvidenceBuilder:
         self,
         candidates: CandidateRepository,
         *,
-        max_evidence: int = 40,
+        max_evidence: int = DEFAULT_MAX_EVIDENCE,
+        max_evidence_chars: int = DEFAULT_MAX_EVIDENCE_CHARS,
+        max_evidence_per_source_type: int = DEFAULT_MAX_EVIDENCE_PER_SOURCE_TYPE,
         now=lambda: datetime.now(UTC),
     ) -> None:
+        if max_evidence < 1:
+            raise ValueError("max_evidence must be positive")
+        if max_evidence_chars < 1:
+            raise ValueError("max_evidence_chars must be positive")
+        if max_evidence_per_source_type < 1:
+            raise ValueError("max_evidence_per_source_type must be positive")
         self.candidates = candidates
         self.max_evidence = max_evidence
+        self.max_evidence_chars = max_evidence_chars
+        self.max_evidence_per_source_type = max_evidence_per_source_type
         self._now = now
 
     def build(self, symbol: str) -> AnalysisEvidencePackage:
@@ -74,14 +88,26 @@ class AnalysisEvidenceBuilder:
         )
         selected: list[AnalysisEvidence] = []
         seen_text: set[str] = set()
+        source_type_counts: dict[CandidateSourceType, int] = {}
+        remaining_chars = self.max_evidence_chars
         for source in sorted(
             source_rows,
             key=lambda item: (item.relevance, item.observed_at, item.evidence_id),
             reverse=True,
         ):
+            if len(selected) == self.max_evidence or remaining_chars <= 0:
+                break
+            source_type_count = source_type_counts.get(source.source_type, 0)
+            if source_type_count >= self.max_evidence_per_source_type:
+                continue
             normalized = " ".join(source.source_excerpt.casefold().split())
             content_key = sha256(normalized.encode("utf-8")).hexdigest()
             if content_key in seen_text:
+                continue
+            text = source.source_excerpt[
+                : min(MAX_EVIDENCE_ITEM_CHARS, remaining_chars)
+            ]
+            if not text.strip():
                 continue
             seen_text.add(content_key)
             selected.append(
@@ -89,15 +115,15 @@ class AnalysisEvidenceBuilder:
                     source_id=source.evidence_id,
                     source_type=source.source_type,
                     source_record_id=source.source_record_id,
-                    text=source.source_excerpt,
+                    text=text,
                     source_url=source.source_url,
                     event_at=source.event_at,
                     observed_at=source.observed_at,
                     relevance=source.relevance,
                 )
             )
-            if len(selected) == self.max_evidence:
-                break
+            source_type_counts[source.source_type] = source_type_count + 1
+            remaining_chars -= len(text)
         if not selected:
             raise AnalysisEvidenceError(f"candidate {ticker} has no active evidence")
         evidence_hash = _evidence_hash(

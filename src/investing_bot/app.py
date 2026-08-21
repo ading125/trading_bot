@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 import logging
 from pathlib import Path
+from secrets import token_urlsafe
 from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response
@@ -206,10 +207,7 @@ def create_app(
                 scheduled_actions.add(ManualAction.MARKET)
             if resolved_settings.candidate_refresh_enabled:
                 scheduled_actions.add(ManualAction.CANDIDATES)
-            if (
-                resolved_settings.analysis_refresh_enabled
-                and resolved_settings.parsed_analysis_seed_symbols
-            ):
+            if resolved_settings.analysis_refresh_enabled:
                 scheduled_actions.add(ManualAction.ANALYSIS)
             if (
                 resolved_settings.strategy_refresh_enabled
@@ -226,6 +224,7 @@ def create_app(
                 strategy_service=strategy_service,
                 outcome_service=outcome_service,
                 analysis_symbols=resolved_settings.parsed_analysis_seed_symbols,
+                analysis_candidate_limit=resolved_settings.analysis_candidate_limit,
                 strategy_symbols=resolved_settings.parsed_strategy_seed_symbols,
                 scheduled_actions=frozenset(scheduled_actions),
             )
@@ -273,6 +272,7 @@ def create_app(
         docs_url=None,
         redoc_url=None,
     )
+    app.state.csrf_token = token_urlsafe(32)
 
     @app.middleware("http")
     async def security_and_request_context(
@@ -289,7 +289,7 @@ def create_app(
             "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; "
             "form-action 'self'; object-src 'none'"
         )
-        if request.url.path.startswith("/api/"):
+        if request.url.path.startswith("/api/") or request.url.path == "/":
             response.headers["cache-control"] = "no-store"
         logger.info(
             "request completed",

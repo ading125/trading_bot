@@ -67,6 +67,11 @@ owns refresh leases and expiry reconciliation, and writes exact evidence excerpt
 states, candidate evidence, active candidates, and refresh summaries. No resolver
 or candidate service imports `yfinance`.
 
+The analysis queue is derived from active CivicTracker, news, and earnings
+evidence rather than a fixed ticker. It ranks source diversity first, then
+recency and cumulative relevance, applies a small request cap, and excludes
+universe-membership-only records before the hosted model is called.
+
 ## Provider subsystem
 
 External services are replaceable per capability, not through one monolithic vendor interface. Narrow protocols cover daily bars, intraday bars, quotes, corporate actions, symbol lookup, news, earnings calendars/results/estimates, cursor-based social posts, and structured LLM analysis. Business services depend only on these protocols and canonical domain models; provider SDKs may be imported only inside their adapters.
@@ -122,7 +127,8 @@ Versioned endpoints should cover:
 - Settings presence/status without ever returning stored secret values.
 - Provider registry, capability/health status, connection tests, selection, and explicit fallback activity.
 
-Current state-changing endpoints require same-origin requests and remain
+Current state-changing endpoints require a random per-server CSRF token embedded
+in the dashboard or supplied through the explicit API header, and remain
 loopback-only. Multi-user authentication is not implemented because version one
 is a single-user local service; it is required before any non-loopback exposure.
 

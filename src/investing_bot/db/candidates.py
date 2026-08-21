@@ -382,6 +382,38 @@ class CandidateRepository:
         row = self._database.fetchone(f"SELECT COUNT(*) FROM candidates{where}")
         return 0 if row is None else int(row[0])
 
+    def list_analysis_symbols(self, *, limit: int = 5) -> tuple[str, ...]:
+        """Rank candidates with current research evidence beyond universe membership."""
+
+        if limit < 1:
+            raise ValueError("analysis candidate limit must be positive")
+        rows = self._database.fetchall(
+            """
+            SELECT candidate.symbol
+            FROM candidates candidate
+            JOIN candidate_evidence evidence
+              ON evidence.symbol=candidate.symbol
+             AND evidence.active=true
+             AND evidence.expires_at > CURRENT_TIMESTAMP
+             AND evidence.source_type IN ('civictracker', 'news', 'earnings')
+            WHERE candidate.active=true
+              AND candidate.expires_at > CURRENT_TIMESTAMP
+              AND (
+                  candidate.company_name <> candidate.symbol
+                  OR evidence.source_type = 'civictracker'
+              )
+            GROUP BY candidate.symbol
+            ORDER BY
+                COUNT(DISTINCT evidence.source_type) DESC,
+                MAX(evidence.observed_at) DESC,
+                SUM(evidence.relevance) DESC,
+                candidate.symbol
+            LIMIT ?
+            """,
+            [limit],
+        )
+        return tuple(str(row[0]) for row in rows)
+
     def get_candidate(
         self, symbol: str, *, active_only: bool = True
     ) -> Candidate | None:

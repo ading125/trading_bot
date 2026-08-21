@@ -54,7 +54,8 @@ class AppSettings(BaseSettings):
     candidate_refresh_seconds: int = Field(default=900, ge=300, le=86_400)
     analysis_refresh_enabled: bool = True
     analysis_refresh_seconds: int = Field(default=3_600, ge=900, le=86_400)
-    analysis_seed_symbols: str = "CVX"
+    analysis_seed_symbols: str = ""
+    analysis_candidate_limit: int = Field(default=5, ge=1, le=10)
     strategy_refresh_enabled: bool = True
     strategy_refresh_seconds: int = Field(default=900, ge=300, le=86_400)
     strategy_seed_symbols: str = "CVX"

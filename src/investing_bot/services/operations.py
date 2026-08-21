@@ -279,6 +279,7 @@ class OperationsCoordinator:
         strategy_service: Any,
         outcome_service: OutcomeTrackingService,
         analysis_symbols: tuple[str, ...],
+        analysis_candidate_limit: int = 5,
         strategy_symbols: tuple[str, ...],
         scheduled_actions: frozenset[ManualAction] | None = None,
         cooldown: timedelta = timedelta(seconds=30),
@@ -293,6 +294,7 @@ class OperationsCoordinator:
         self.strategy_service = strategy_service
         self.outcome_service = outcome_service
         self.analysis_symbols = analysis_symbols
+        self.analysis_candidate_limit = analysis_candidate_limit
         self.strategy_symbols = strategy_symbols
         self.scheduled_actions = (
             frozenset(ManualAction)
@@ -402,11 +404,17 @@ class OperationsCoordinator:
             return f"candidate queue has {result.candidates_active} active symbols"
         if action is ManualAction.ANALYSIS:
             cached = completed = 0
-            for symbol in self.analysis_symbols:
+            symbols = self.analysis_symbols or self.candidate_service.analysis_queue(
+                limit=self.analysis_candidate_limit
+            )
+            for symbol in symbols:
                 result = await self.analysis_service.analyze(symbol)
                 completed += 1
                 cached += int(result.cached)
-            return f"analysis completed for {completed} symbols ({cached} cached)"
+            return (
+                f"analysis completed for {completed} automatically selected symbols "
+                f"({cached} cached)"
+            )
         if action is ManualAction.STRATEGIES:
             evaluations = 0
             for symbol in self.strategy_symbols:

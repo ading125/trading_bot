@@ -145,6 +145,7 @@ class MarketDataCollector:
             pinned = await self.provider_manager.pin(capability, run_id=run.run_id)
             provider_id = pinned.provider_id
             groups: dict[datetime, list[str]] = defaultdict(list)
+            incremental_symbols: set[str] = set()
             for symbol in symbols:
                 latest = self.repository.latest_bar_end(
                     provider_id=provider_id,
@@ -163,6 +164,8 @@ class MarketDataCollector:
                     candidates.append(latest + timedelta(microseconds=1))
                 if covered is not None:
                     candidates.append(covered)
+                if latest is not None or covered is not None:
+                    incremental_symbols.add(symbol)
                 missing_start = max(candidates)
                 if missing_start < end:
                     groups[missing_start].append(symbol)
@@ -175,6 +178,14 @@ class MarketDataCollector:
                     adjustment=adjustment,
                 )
                 result = await pinned.fetch_bars(request)
+                if not result.items and all(
+                    symbol in incremental_symbols for symbol in grouped_symbols
+                ):
+                    # A narrow incremental window commonly contains no newly
+                    # completed bar. Preserve the existing cursor so a later
+                    # run retries the window, but do not quarantine a valid
+                    # provider response or fail the whole manual refresh.
+                    continue
                 errors = self.validator.validate_bars(request, result.items)
                 if errors:
                     quarantined = True

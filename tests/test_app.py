@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
 
@@ -9,7 +9,13 @@ import pytest
 
 from investing_bot.app import create_app
 from investing_bot.config import AppSettings
-from investing_bot.db import Database, JobRunRepository, JobStatus
+from investing_bot.db import (
+    CandidateEvidence,
+    CandidateSourceType,
+    Database,
+    JobRunRepository,
+    JobStatus,
+)
 from investing_bot.models import ProviderCapability
 from investing_bot.providers import (
     CapabilitySelection,
@@ -41,6 +47,7 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://testserver"
         ) as client:
+            csrf_headers = {"X-CSRF-Token": app.state.csrf_token}
             health = await client.get("/api/v1/health")
             ready = await client.get("/api/v1/ready")
             providers = await client.get("/api/v1/providers")
@@ -67,15 +74,32 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
             operation_runs = await client.get("/api/v1/operations/runs")
             diagnostics = await client.get("/api/v1/diagnostics")
             outcome_refresh = await client.post(
-                "/api/v1/operations/refresh/outcomes"
+                "/api/v1/operations/refresh/outcomes", headers=csrf_headers
             )
             repeated_refresh = await client.post(
-                "/api/v1/operations/refresh/outcomes"
+                "/api/v1/operations/refresh/outcomes", headers=csrf_headers
             )
             cross_site_refresh = await client.post(
                 "/api/v1/operations/refresh/outcomes",
                 headers={"Origin": "https://attacker.example"},
             )
+            equivalent_loopback_refresh = await client.post(
+                "http://127.0.0.1/api/v1/operations/refresh/outcomes",
+                headers={
+                    **csrf_headers,
+                    "Origin": "http://localhost",
+                    "Sec-Fetch-Site": "cross-site",
+                },
+            )
+            dashboard_form_refresh = await client.post(
+                "/actions/refresh/outcomes",
+                data={"csrf_token": app.state.csrf_token},
+                headers={
+                    "Origin": "https://embedded-browser.invalid",
+                    "Sec-Fetch-Site": "cross-site",
+                },
+            )
+            missing_form_token = await client.post("/actions/refresh/outcomes")
             backtests = await client.get("/api/v1/backtests")
             experiments = await client.get("/api/v1/backtests/experiments")
             missing_backtest = await client.get(f"/api/v1/backtests/{'a' * 64}")
@@ -158,11 +182,16 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
     assert outcome_refresh.json()["action"] == "outcomes"
     assert repeated_refresh.status_code == 429
     assert cross_site_refresh.status_code == 403
+    assert equivalent_loopback_refresh.status_code == 429
+    assert dashboard_form_refresh.status_code == 303
+    assert missing_form_token.status_code == 403
     assert backtests.json() == {"items": [], "count": 0}
     assert experiments.json() == {"items": [], "count": 0}
     assert missing_backtest.status_code == 404
     assert missing_experiment.status_code == 404
     assert dashboard.status_code == 200
+    assert app.state.csrf_token in dashboard.text
+    assert dashboard.headers["cache-control"] == "no-store"
     assert "The local research service is running." in dashboard.text
     assert "Market-day controls" in dashboard.text
     assert "No recommendation is generated" in dashboard.text
@@ -185,6 +214,62 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
         assert response.headers["content-security-policy"].startswith(
             "default-src 'self'"
         )
+
+
+@pytest.mark.anyio
+async def test_manual_analysis_uses_automatic_candidate_queue(tmp_path: Path) -> None:
+    app = create_app(
+        AppSettings(
+            environment="test",
+            data_dir=tmp_path,
+            log_format="console",
+            analysis_candidate_limit=1,
+        )
+    )
+    now = datetime.now(UTC)
+
+    async with app.router.lifespan_context(app):
+        for symbol, company_name, minutes_ago in (
+            ("CVX", "Chevron Corporation", 10),
+            ("AAPL", "Apple Inc.", 1),
+        ):
+            observed_at = now - timedelta(minutes=minutes_ago)
+            app.state.candidates.store_evidence(
+                CandidateEvidence(
+                    evidence_id=f"news-{symbol.casefold()}-automatic",
+                    symbol=symbol,
+                    company_name=company_name,
+                    source_type=CandidateSourceType.NEWS,
+                    source_record_id=f"news-{symbol.casefold()}-automatic",
+                    source_excerpt=f"Recent material update for {company_name}.",
+                    source_url=f"https://example.test/{symbol.casefold()}",
+                    event_at=observed_at,
+                    observed_at=observed_at,
+                    extraction_method="source_symbol",
+                    resolution_id=None,
+                    resolution_confidence=1,
+                    relevance=0.9,
+                    expires_at=now + timedelta(days=30),
+                    active=True,
+                )
+            )
+        app.state.candidates.refresh_candidate_state(now=now)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://testserver"
+        ) as client:
+            response = await client.post(
+                "/actions/refresh/analysis",
+                data={"csrf_token": app.state.csrf_token},
+            )
+            analyses = await client.get("/api/v1/analyses")
+
+    assert response.status_code == 303
+    assert response.headers["location"] == (
+        "/?operation=analysis&state=completed#analysis-heading"
+    )
+    assert analyses.json()["count"] == 1
+    assert analyses.json()["items"][0]["ticker"] == "AAPL"
 
 
 def test_analysis_mode_reports_live_hosted_provider() -> None:

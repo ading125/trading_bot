@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from importlib.metadata import version
 from datetime import UTC, date, datetime
+import hmac
 from pathlib import Path
 import re
 from types import SimpleNamespace
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -455,6 +456,7 @@ async def dashboard(request: Request) -> HTMLResponse:
             "provider_operations": provider_operations,
             "operation_notice": request.query_params.get("operation"),
             "operation_state": request.query_params.get("state"),
+            "csrf_token": request.app.state.csrf_token,
         },
     )
 
@@ -685,7 +687,7 @@ async def operations_runs(
 async def manual_operation_api(
     request: Request, action: str
 ) -> ManualActionResult:
-    _require_same_origin(request)
+    _require_csrf_token(request, request.headers.get("x-csrf-token"))
     selected = _manual_action(action)
     try:
         return await request.app.state.operations.run_manual(selected)
@@ -701,7 +703,7 @@ async def manual_operation_api(
 
 @router.post("/actions/refresh/{action}", response_class=RedirectResponse)
 async def manual_operation_form(request: Request, action: str) -> RedirectResponse:
-    _require_same_origin(request)
+    await _require_form_csrf_token(request)
     selected = _manual_action(action)
     state_value = "completed"
     try:
@@ -712,8 +714,9 @@ async def manual_operation_form(request: Request, action: str) -> RedirectRespon
         state_value = "busy"
     except Exception:
         state_value = "failed"
+    fragment = "#analysis-heading" if selected is ManualAction.ANALYSIS else ""
     return RedirectResponse(
-        url=f"/?operation={selected.value}&state={state_value}",
+        url=f"/?operation={selected.value}&state={state_value}{fragment}",
         status_code=status.HTTP_303_SEE_OTHER,
     )
 
@@ -1043,16 +1046,33 @@ def _manual_action(value: str) -> ManualAction:
         raise HTTPException(status_code=404, detail="unknown manual operation") from exc
 
 
-def _require_same_origin(request: Request) -> None:
-    fetch_site = request.headers.get("sec-fetch-site", "")
-    if fetch_site.lower() == "cross-site":
-        raise HTTPException(status_code=403, detail="cross-site operation blocked")
-    origin = request.headers.get("origin")
-    if origin is None:
-        return
-    parsed = urlsplit(origin)
-    if parsed.scheme not in {"http", "https"} or parsed.netloc != request.url.netloc:
-        raise HTTPException(status_code=403, detail="cross-site operation blocked")
+async def _require_form_csrf_token(request: Request) -> None:
+    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip()
+    if content_type != "application/x-www-form-urlencoded":
+        raise HTTPException(status_code=403, detail="dashboard control token missing")
+    body = await request.body()
+    if len(body) > 4_096:
+        raise HTTPException(status_code=403, detail="dashboard control token invalid")
+    try:
+        values = parse_qs(
+            body.decode("utf-8"),
+            keep_blank_values=True,
+            max_num_fields=4,
+            strict_parsing=True,
+        ).get("csrf_token", [])
+    except (UnicodeDecodeError, ValueError):
+        values = []
+    provided = values[0] if len(values) == 1 else None
+    _require_csrf_token(request, provided)
+
+
+def _require_csrf_token(request: Request, provided: str | None) -> None:
+    expected = request.app.state.csrf_token
+    if provided is None or not hmac.compare_digest(provided, expected):
+        raise HTTPException(
+            status_code=403,
+            detail="dashboard control token missing or expired; reload the dashboard",
+        )
 
 
 def _sha256(value: str) -> str:

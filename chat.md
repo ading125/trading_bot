@@ -291,6 +291,23 @@ The following sections record settled decisions and their reasoning. They are no
   live Groq, deterministic recorded fallback, or analysis unavailable. This makes
   the security/runtime distinction visible without adding browser-based unlock.
 
+## 2026-08-21 — Automatic AI candidate queue
+
+- Replaced the default fixed `CVX` analysis seed with an automatically ranked,
+  bounded shortlist built from active CivicTracker, Yahoo news, and earnings
+  candidate evidence.
+- Excluded S&P 500 membership-only records from AI calls. The universe remains
+  useful for verified identity and aliases, but membership is not a research
+  catalyst.
+- Ranked candidates deterministically by source diversity, recency, cumulative
+  relevance, and ticker. This discovers what deserves a model call without
+  spending one request on every universe member.
+- Limited each refresh to five automatically selected companies. An explicit
+  analysis symbol list remains an
+  optional operator override rather than the default workflow.
+- Redirected the completed dashboard action directly to the rendered assessment
+  section and verified the complete implementation with 144 offline tests.
+
 ## Current assumptions to validate experimentally
 
 - The first baseline entry/exit algorithm should be simple, explainable, and parameterized; trend-pullback and breakout variants are leading candidates.
@@ -379,10 +396,10 @@ The following sections record settled decisions and their reasoning. They are no
 - Coalesced related market tasks due within five minutes into one bounded market
   collection. This preserves the current provider-neutral all-market refresh
   boundary without duplicating Yahoo calls at overlapping schedule times.
-- Added same-origin dashboard POST controls for source, market, candidate, AI,
-  strategy, and outcome refreshes. Each uses a persistent job record, a job-type
-  lease, and a cooldown; there is no browser endpoint for credential entry or
-  vault unlock.
+- Added dashboard POST controls for source, market, candidate, AI, strategy, and
+  outcome refreshes. Each uses a random per-server CSRF token, persistent job
+  record, job-type lease, and cooldown; there is no browser endpoint for
+  credential entry or vault unlock.
 - Added prospective outcome reconciliation for each immutable AI assessment at
   5, 10, and 20 later sessions. Baseline and outcome prices are adjusted,
   provider-pinned, and constrained by bar completion and known-availability

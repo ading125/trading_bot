@@ -117,9 +117,12 @@ snapshot, CivicTracker mentions, news, and earnings. View them at
 `/api/v1/candidates/{symbol}/evidence` route. Ambiguous and unresolved mentions
 remain visible at `/api/v1/resolutions` but cannot enter the candidate list.
 
-Milestone 6 analyzes the bounded `CVX` seed with Groq's fixed
-`openai/gpt-oss-120b` model whenever the vault is explicitly unlocked. It stores
-immutable evidence packages,
+Milestone 6 automatically ranks a bounded shortlist from current CivicTracker,
+news, and earnings evidence, then analyzes up to five companies with Groq's
+fixed `openai/gpt-oss-120b` model whenever the vault is explicitly unlocked.
+S&P 500 membership alone cannot enter the analysis queue. An explicit
+`INVESTING_BOT_ANALYSIS_SEED_SYMBOLS` list remains available as an optional
+override. The service stores immutable evidence packages,
 provider-version-aware cache keys, assessment history, and prospective 5/10/20
 session outcome slots. The dashboard shows the latest thesis, scores, catalysts,
 bear case, risks, uncertainty, and evidence link. Read-only records are also
@@ -159,7 +162,7 @@ price charts, complete entry/invalidation/exit controls, source freshness,
 provider selection and fallback activity, schema versions, sanitized quota and
 latency, the next U.S. market-session tasks, and persisted schedule history.
 Manual source, market, candidate, analysis, strategy, and outcome refreshes are
-same-origin POST actions with one-run locks and cooldown protection. The same
+protected by a random per-server CSRF token, one-run locks, and cooldowns. The same
 state is available through `/api/v1/operations/*`, `/api/v1/providers/operations`,
 `/api/v1/alerts`, and the intentionally sanitized `/api/v1/diagnostics` route.
 Prospective AI outcomes are reconciled after the close against provider-pinned,
@@ -181,7 +184,7 @@ a clean local or named-volume mount explicit. The optional Windows/WSL launcher
 is `start-investing-bot.ps1`; pass `-UnlockCredentials` when live Groq analysis
 is needed.
 
-Verification: 141 offline tests cover provider contracts, CivicTracker
+Verification: 144 offline tests cover provider contracts, CivicTracker
 collection, Yahoo normalization, incremental market coverage,
 validation/quarantine, revision history, actual Parquet publication, deterministic
 company resolution, ambiguity/manual-review behavior, source provenance, and

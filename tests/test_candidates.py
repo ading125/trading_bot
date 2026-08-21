@@ -136,6 +136,12 @@ async def test_direct_sources_form_a_union_and_expire_without_refresh(
                 "sector": "Energy",
                 "sub_industry": "Integrated Oil & Gas",
             },
+            {
+                "symbol": "MSFT",
+                "company_name": "Microsoft Corporation",
+                "sector": "Information Technology",
+                "sub_industry": "Systems Software",
+            },
         ),
     )
     market.store_news(
@@ -169,6 +175,7 @@ async def test_direct_sources_form_a_union_and_expire_without_refresh(
         CandidateSourceType.NEWS,
         CandidateSourceType.EARNINGS,
     }
+    assert repository.list_analysis_symbols() == ("CVX",)
 
     active, active_evidence = repository.refresh_candidate_state(
         now=NOW + timedelta(days=31)

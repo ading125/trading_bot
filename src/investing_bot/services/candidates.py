@@ -438,6 +438,11 @@ class CandidateRegistryService:
         self.jobs = jobs
         self._now = now
 
+    def analysis_queue(self, *, limit: int) -> tuple[str, ...]:
+        """Return the strongest current non-universe-only research candidates."""
+
+        return self.repository.list_analysis_symbols(limit=limit)
+
     async def refresh(self) -> CandidateRefreshSummary:
         owner = f"candidates-{uuid4()}"
         if not self.jobs.acquire_lease(

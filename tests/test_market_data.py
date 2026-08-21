@@ -44,10 +44,14 @@ class CountingFixtureProvider(RecordedFixtureProvider):
     def __init__(self) -> None:
         super().__init__("fixture_recorded")
         self.bar_calls = 0
+        self.return_empty_bars = False
 
     async def fetch_bars(self, request: BarsRequest):
         self.bar_calls += 1
-        return await super().fetch_bars(request)
+        result = await super().fetch_bars(request)
+        if self.return_empty_bars:
+            return result.model_copy(update={"items": ()})
+        return result
 
 
 def market_manager(provider: CountingFixtureProvider) -> ProviderManager:
@@ -143,6 +147,18 @@ async def test_market_collector_is_incremental_and_quarantines_partial_results(
     assert second.stored_records == 0
     assert provider.bar_calls == 1
     assert repository.status().bar_count == 1
+
+    provider.return_empty_bars = True
+    no_new_bar = await collector.collect_bars(
+        symbols=("SPY",),
+        start=START,
+        end=END + timedelta(hours=1),
+        interval=BarInterval.DAY_1,
+        adjustment=PriceAdjustment.ADJUSTED,
+    )
+    assert no_new_bar.stored_records == 0
+    assert no_new_bar.quarantined is False
+    assert repository.status().quarantine_count == 0
 
     with pytest.raises(MarketDataValidationError, match="AAPL"):
         await collector.collect_bars(

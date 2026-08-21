@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -163,6 +164,65 @@ async def test_changed_evidence_creates_assessment_history(tmp_path: Path) -> No
     assert second.cached is False
     assert second.assessment.evidence_hash != first.assessment.evidence_hash
     assert len(repository.history("CVX")) == 2
+    database.close()
+
+
+def test_evidence_package_is_size_bounded_and_source_diverse(tmp_path: Path) -> None:
+    database, candidates, _, _, _ = setup_analysis(tmp_path)
+    for source_type in (CandidateSourceType.NEWS, CandidateSourceType.EARNINGS):
+        for index in range(10):
+            evidence_id = f"{source_type.value}-cvx-{index + 10}"
+            candidates.store_evidence(
+                CandidateEvidence(
+                    evidence_id=evidence_id,
+                    symbol="CVX",
+                    company_name="Chevron Corporation",
+                    source_type=source_type,
+                    source_record_id=evidence_id,
+                    source_excerpt=(
+                        f"{source_type.value} update {index} " + ("x" * 180)
+                    ),
+                    source_url=f"https://example.test/{evidence_id}",
+                    event_at=NOW + timedelta(minutes=index),
+                    observed_at=NOW + timedelta(minutes=index),
+                    extraction_method="source_symbol",
+                    resolution_id=None,
+                    resolution_confidence=1,
+                    relevance=0.9,
+                    expires_at=NOW + timedelta(days=30),
+                    active=True,
+                )
+            )
+    candidates.store_evidence(
+        CandidateEvidence(
+            evidence_id="civictracker-cvx-long",
+            symbol="CVX",
+            company_name="Chevron Corporation",
+            source_type=CandidateSourceType.CIVICTRACKER,
+            source_record_id="civictracker-cvx-long",
+            source_excerpt="material policy record " + ("y" * 5_000),
+            source_url="https://example.test/civictracker-cvx-long",
+            event_at=NOW + timedelta(hours=1),
+            observed_at=NOW + timedelta(hours=1),
+            extraction_method="source_symbol",
+            resolution_id=None,
+            resolution_confidence=1,
+            relevance=1,
+            expires_at=NOW + timedelta(days=30),
+            active=True,
+        )
+    )
+
+    package = AnalysisEvidenceBuilder(candidates, now=lambda: NOW).build("CVX")
+    source_counts = Counter(item.source_type for item in package.evidence)
+
+    assert len(package.evidence) == 12
+    assert sum(len(item.text) for item in package.evidence) <= 4_000
+    assert max(len(item.text) for item in package.evidence) <= 1_000
+    assert max(source_counts.values()) <= 6
+    assert {CandidateSourceType.NEWS, CandidateSourceType.EARNINGS}.issubset(
+        source_counts
+    )
     database.close()
 
 

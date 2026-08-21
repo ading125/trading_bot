@@ -13,6 +13,8 @@ def test_settings_build_database_path_below_absolute_data_dir(tmp_path: Path) ->
 
     assert settings.database_path == tmp_path / "investing_bot.duckdb"
     assert str(settings.bind_host) == "127.0.0.1"
+    assert settings.parsed_analysis_seed_symbols == ()
+    assert settings.analysis_candidate_limit == 5
 
 
 @pytest.mark.parametrize(

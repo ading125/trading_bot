@@ -70,6 +70,7 @@
             ('outcomes', 'Reconcile outcomes')
           ] %}
           <form method="post" action="/actions/refresh/{{ action }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit">{{ label }}</button>
           </form>
           {% endfor %}
@@ -242,8 +243,9 @@
           </article>
           {% else %}
           <p class="detail empty-state">
-            No AI assessment has been recorded yet. The first bounded CVX
-            analysis runs after candidate refresh.
+            No AI assessment has been recorded yet. Analysis automatically
+            selects a bounded shortlist from current news, earnings, and
+            CivicTracker evidence after candidate refresh.
           </p>
           {% endfor %}
         </div>

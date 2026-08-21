@@ -151,6 +151,48 @@ async def test_health_and_analysis_use_vault_reference_and_strict_schema() -> No
 
 
 @pytest.mark.anyio
+async def test_analysis_request_bounds_large_evidence_payload() -> None:
+    captured: list[tuple[dict, int]] = []
+    evidence = tuple(
+        EvidenceItem(
+            source_id=f"source-{index:02d}-" + ("s" * 50),
+            text=f"Evidence item {index}: " + ("x" * 2_000),
+            observed_at=NOW,
+        )
+        for index in range(40)
+    )
+    request_model = StructuredAnalysisRequest(
+        ticker="CVX",
+        prompt_version="growth_analysis.v1",
+        output_schema_version="structured_analysis.v1",
+        evidence=evidence,
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        prompt = json.loads(payload["messages"][1]["content"])
+        captured.append((prompt, len(request.content)))
+        return httpx.Response(
+            200,
+            json=successful_completion(
+                source_ids=[prompt["evidence"][0]["source_id"]]
+            ),
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = GroqStructuredLLMProvider(
+            FakeCredentialStore(), client=client, retries=0, now=lambda: NOW
+        )
+        await provider.analyze(request_model, "cred_groq")
+
+    prompt, request_bytes = captured[0]
+    assert len(prompt["evidence"]) == 4
+    assert sum(len(item["text"]) for item in prompt["evidence"]) == 4_000
+    assert max(len(item["text"]) for item in prompt["evidence"]) == 1_000
+    assert request_bytes < 14_000
+
+
+@pytest.mark.anyio
 async def test_manager_forwards_credential_reference_and_stamps_run() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/models"):
