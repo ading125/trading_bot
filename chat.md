@@ -298,6 +298,37 @@ The following sections record settled decisions and their reasoning. They are no
 - Intraday confirmation will likely use completed 15-minute bars while longer daily bars establish the primary trend.
 - Precise strategy parameters must be chosen through walk-forward research and stability testing, not preference alone.
 
+## 2026-08-21 — Deterministic strategy framework and baseline hypotheses
+
+- Added a source-controlled trusted strategy protocol, explicit registry,
+  versioned manifests, JSON parameter schemas, and immutable point-in-time
+  market frames. Writable data cannot upload or dynamically load strategy code.
+- Implemented separate trend-pullback and range-breakout hypotheses using daily
+  moving-average trend, ATR, prior volume, SPY-relative strength, completed-bar
+  confirmation, and optional completed 15-minute recovery.
+- Restricted strategy evaluation to active candidates whose current AI
+  assessment is `qualify`; an AI thesis cannot itself create a technical setup.
+- Required one provider-consistent adjusted price history per evaluation and
+  excluded bars whose completion or known-availability timestamp exceeds the
+  evaluation clock.
+- Persisted immutable setup evaluations with forming, confirmed, invalidated,
+  expired, and closed lifecycle vocabulary; theoretical entry zone,
+  stop/invalidation, exit intent, reward-to-risk, calculated features,
+  explanations, parameters, versions, hashes, provider lineage, and history.
+- Reused unchanged evaluations by deterministic cache identity. When price data
+  becomes stale, the engine preserves a prior forming/confirmed state but blocks
+  any new confirmation.
+- Added background bounded evaluation, read-only strategy/setup/history APIs,
+  and a dashboard research section that clearly labels both baselines as
+  hypotheses and keeps live alerts disabled.
+- Chose not to label either baseline validated or profitable based on software
+  tests. Milestone 8 must add the event-driven backtester, costs, walk-forward
+  experiments, stability checks, and out-of-sample acceptance gate.
+- Verified 129 offline tests, including deterministic replay, no-look-ahead and
+  provider-blending rejection, no strategy I/O/provider imports, optional
+  intraday confirmation, stale-state preservation, cache reuse, persistence,
+  and API/dashboard contracts.
+
 ## Open decisions
 
 No decision blocks building the ingestion, storage, AI-analysis, strategy-plugin, and backtest frameworks. Before calling entry/exit output production-ready, the baseline strategy family and its parameter acceptance criteria must be validated through research.

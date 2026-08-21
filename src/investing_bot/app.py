@@ -20,6 +20,7 @@ from investing_bot.db import (
     JobRunRepository,
     MarketDataRepository,
     SocialPostRepository,
+    StrategyRepository,
 )
 from investing_bot.logging import configure_logging
 from investing_bot.providers import (
@@ -42,7 +43,10 @@ from investing_bot.services import (
     MarketDataCollector,
     MarketPollingService,
     SP500UniverseCollector,
+    StrategyEvaluationService,
+    StrategyPollingService,
 )
+from investing_bot.strategies import build_default_strategy_registry
 
 
 logger = logging.getLogger(__name__)
@@ -74,6 +78,7 @@ def create_app(
         market_polling_service: MarketPollingService | None = None
         candidate_polling_service: CandidatePollingService | None = None
         analysis_polling_service: AnalysisPollingService | None = None
+        strategy_polling_service: StrategyPollingService | None = None
         app.state.database = database
         app.state.settings = resolved_settings
         try:
@@ -86,6 +91,8 @@ def create_app(
             )
             candidate_repository = CandidateRepository(database)
             analysis_repository = AnalysisRepository(database)
+            strategy_repository = StrategyRepository(database)
+            strategy_registry = build_default_strategy_registry()
             interrupted = repository.mark_running_jobs_interrupted()
             app.state.job_runs = repository
             provider_configuration = load_provider_configuration(
@@ -125,6 +132,8 @@ def create_app(
             app.state.market_data = market_repository
             app.state.candidates = candidate_repository
             app.state.analyses = analysis_repository
+            app.state.strategy_evaluations = strategy_repository
+            app.state.strategy_registry = strategy_registry
             collector = CivicTrackerCollector(
                 provider_manager=provider_manager,
                 posts=post_repository,
@@ -159,6 +168,15 @@ def create_app(
                 jobs=repository,
             )
             app.state.analysis_service = analysis_service
+            strategy_service = StrategyEvaluationService(
+                market=market_repository,
+                candidates=candidate_repository,
+                analyses=analysis_repository,
+                strategies=strategy_registry,
+                repository=strategy_repository,
+                jobs=repository,
+            )
+            app.state.strategy_service = strategy_service
             if (
                 resolved_settings.environment != "test"
                 and resolved_settings.civictracker_collection_enabled
@@ -202,6 +220,18 @@ def create_app(
                     initial_delay_seconds=10,
                 )
                 analysis_polling_service.start()
+            if (
+                resolved_settings.environment != "test"
+                and resolved_settings.strategy_refresh_enabled
+                and resolved_settings.parsed_strategy_seed_symbols
+            ):
+                strategy_polling_service = StrategyPollingService(
+                    strategy_service,
+                    symbols=resolved_settings.parsed_strategy_seed_symbols,
+                    interval_seconds=resolved_settings.strategy_refresh_seconds,
+                    initial_delay_seconds=20,
+                )
+                strategy_polling_service.start()
             logger.info(
                 "application ready",
                 extra={
@@ -213,6 +243,8 @@ def create_app(
             )
             yield
         finally:
+            if strategy_polling_service is not None:
+                await strategy_polling_service.stop()
             if analysis_polling_service is not None:
                 await analysis_polling_service.stop()
             if candidate_polling_service is not None:

@@ -36,7 +36,7 @@ END = datetime(2026, 8, 15, tzinfo=UTC)
 def open_market_repository(tmp_path: Path) -> tuple[Database, MarketDataRepository]:
     database = Database(tmp_path / "investing_bot.duckdb")
     database.connect()
-    assert database.migrate() == 6
+    assert database.migrate() == 7
     return database, MarketDataRepository(database, dataset_root=tmp_path / "market")
 
 

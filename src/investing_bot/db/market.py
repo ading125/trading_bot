@@ -20,6 +20,7 @@ from investing_bot.models import (
     MarketQuote,
     NewsItem,
     PriceAdjustment,
+    StrategyBar,
 )
 
 
@@ -492,6 +493,78 @@ class MarketDataRepository:
             "provider_id", "repaired",
         )
         return [dict(zip(fields, row, strict=True)) for row in rows]
+
+    def resolve_strategy_provider(
+        self,
+        *,
+        symbol: str,
+        benchmark_symbol: str,
+        as_of: datetime,
+    ) -> str | None:
+        symbols = tuple(dict.fromkeys((symbol.upper(), benchmark_symbol.upper())))
+        placeholders = ",".join("?" for _ in symbols)
+        row = self._database.fetchone(
+            f"""
+            SELECT provider_id
+            FROM market_bars
+            WHERE symbol IN ({placeholders})
+              AND interval=? AND adjustment=?
+              AND bar_end <= ? AND known_available_at <= ?
+            GROUP BY provider_id
+            HAVING COUNT(DISTINCT symbol) = ?
+            ORDER BY MAX(bar_end) DESC, provider_id
+            LIMIT 1
+            """,
+            [
+                *symbols,
+                BarInterval.DAY_1.value,
+                PriceAdjustment.ADJUSTED.value,
+                as_of,
+                as_of,
+                len(symbols),
+            ],
+        )
+        return None if row is None else str(row[0])
+
+    def strategy_bars(
+        self,
+        *,
+        provider_id: str,
+        symbol: str,
+        interval: BarInterval,
+        as_of: datetime,
+        limit: int,
+    ) -> tuple[StrategyBar, ...]:
+        rows = self._database.fetchall(
+            """
+            SELECT symbol, interval, bar_start, bar_end, session_date,
+                   open, high, low, close, volume, known_available_at,
+                   provider_id, repaired
+            FROM (
+                SELECT symbol, interval, bar_start, bar_end, session_date,
+                       open, high, low, close, volume, known_available_at,
+                       provider_id, repaired
+                FROM market_bars
+                WHERE provider_id=? AND symbol=? AND interval=?
+                  AND adjustment=? AND bar_end <= ? AND known_available_at <= ?
+                ORDER BY bar_end DESC LIMIT ?
+            ) selected
+            ORDER BY bar_end
+            """,
+            [
+                provider_id,
+                symbol.upper(),
+                interval.value,
+                PriceAdjustment.ADJUSTED.value,
+                as_of,
+                as_of,
+                limit,
+            ],
+        )
+        fields = tuple(StrategyBar.model_fields)
+        return tuple(
+            StrategyBar(**dict(zip(fields, row, strict=True))) for row in rows
+        )
 
     def list_datasets(self) -> list[MarketDataset]:
         rows = self._database.fetchall(

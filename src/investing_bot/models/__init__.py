@@ -33,6 +33,20 @@ from investing_bot.models.provider import (
     TokenUsage,
 )
 from investing_bot.models.source_post import SourcePost
+from investing_bot.models.strategy import (
+    EntryIntent,
+    ExitIntent,
+    MarketFrame,
+    SetupState,
+    StopIntent,
+    StrategyBar,
+    StrategyCondition,
+    StrategyExplanation,
+    StrategyFeatures,
+    StrategyManifest,
+    StrategyResearchStatus,
+    StrategySignal,
+)
 
 __all__ = [
     "AnalysisDecision",
@@ -61,6 +75,18 @@ __all__ = [
     "SocialPostRecord",
     "SocialPostsRequest",
     "SourcePost",
+    "EntryIntent",
+    "ExitIntent",
+    "MarketFrame",
+    "SetupState",
+    "StopIntent",
+    "StrategyBar",
+    "StrategyCondition",
+    "StrategyExplanation",
+    "StrategyFeatures",
+    "StrategyManifest",
+    "StrategyResearchStatus",
+    "StrategySignal",
     "StructuredAnalysis",
     "StructuredAnalysisRequest",
     "SymbolLookupRequest",

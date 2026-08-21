@@ -86,6 +86,11 @@
           <p class="detail">Source-bounded research records</p>
         </article>
         <article>
+          <p class="label">Strategy evaluations</p>
+          <p class="value">{{ strategy_evaluation_count }}</p>
+          <p class="detail">Deterministic hypotheses · live alerts disabled</p>
+        </article>
+        <article>
           <p class="label">Credential vault</p>
           <p class="value">
             {% if credential_status and credential_status.unlocked %}Unlocked
@@ -116,8 +121,8 @@
         <p class="eyebrow">Growth research</p>
         <h3 id="analysis-heading">Latest AI assessments</h3>
         <p class="detail section-intro">
-          These assessments qualify research evidence only. A technical entry
-          strategy has not been applied yet.
+          These assessments qualify research evidence only. Only a current
+          <strong>qualify</strong> decision may enter deterministic setup research.
         </p>
         <div class="analysis-list">
           {% for assessment in analyses %}
@@ -187,6 +192,86 @@
           <p class="detail empty-state">
             No AI assessment has been recorded yet. The first bounded CVX
             analysis runs after candidate refresh.
+          </p>
+          {% endfor %}
+        </div>
+      </section>
+      <section class="provider-section" aria-labelledby="strategy-heading">
+        <p class="eyebrow">Deterministic setup research</p>
+        <h3 id="strategy-heading">Technical strategy hypotheses</h3>
+        <p class="strategy-warning">
+          These baselines are implementation hypotheses, not validated strategies.
+          Live alerts remain disabled until Milestone 8 walk-forward backtesting,
+          cost modeling, and stability checks pass.
+        </p>
+        <div class="strategy-registry" aria-label="Registered strategy hypotheses">
+          {% for strategy in strategy_manifests %}
+          <article class="strategy-manifest">
+            <div>
+              <span class="strategy-status">{{ strategy.research_status.value | replace('_', ' ') }}</span>
+              <h4>{{ strategy.display_name }}</h4>
+            </div>
+            <p>{{ strategy.description }}</p>
+            <span>{{ strategy.warmup_daily_bars }} completed daily bars required</span>
+          </article>
+          {% endfor %}
+        </div>
+        <div class="setup-list">
+          {% for evaluation in strategy_evaluations %}
+          <article class="setup-card">
+            <header class="setup-header">
+              <div>
+                <p class="analysis-symbol">{{ evaluation.signal.symbol }}</p>
+                <h4>{{ evaluation.signal.strategy_id | replace('_', ' ') | title }}</h4>
+              </div>
+              <span class="setup-state setup-{{ evaluation.signal.state.value }}">
+                {{ evaluation.signal.state.value }}
+              </span>
+            </header>
+            <p class="setup-summary">{{ evaluation.signal.explanation.summary }}</p>
+            <div class="setup-metrics">
+              <div>
+                <span>Data through</span>
+                <strong>
+                  {{ evaluation.signal.features.data_through.strftime('%b %d, %Y') if evaluation.signal.features.data_through else 'Insufficient history' }}
+                </strong>
+              </div>
+              <div>
+                <span>Research entry zone</span>
+                <strong>
+                  {% if evaluation.signal.entry %}
+                  ${{ '%.2f' | format(evaluation.signal.entry.zone_low) }}–${{ '%.2f' | format(evaluation.signal.entry.zone_high) }}
+                  {% else %}Not available{% endif %}
+                </strong>
+              </div>
+              <div>
+                <span>Invalidation</span>
+                <strong>
+                  {% if evaluation.signal.stop %}
+                  ${{ '%.2f' | format(evaluation.signal.stop.invalidation_price) }}
+                  {% else %}Not available{% endif %}
+                </strong>
+              </div>
+              <div>
+                <span>Hypothesis reward/risk</span>
+                <strong>
+                  {% if evaluation.signal.reward_to_risk %}
+                  {{ '%.2f' | format(evaluation.signal.reward_to_risk) }}:1
+                  {% else %}Not available{% endif %}
+                </strong>
+              </div>
+            </div>
+            <div class="analysis-footer">
+              <span>{{ evaluation.research_status.value | replace('_', ' ') }}</span>
+              <span>{{ evaluation.provider_id }} · v{{ evaluation.signal.strategy_version }}</span>
+              {% if evaluation.signal.stale %}<span class="stale-warning">stale · confirmation blocked</span>{% endif %}
+              <a href="/api/v1/setups/{{ evaluation.signal.symbol }}/history?strategy_id={{ evaluation.signal.strategy_id }}">View evaluation history</a>
+            </div>
+          </article>
+          {% else %}
+          <p class="detail empty-state strategy-empty">
+            No AI-qualified candidate with provider-consistent completed market
+            data has produced a setup evaluation. No setup is a valid result.
           </p>
           {% endfor %}
         </div>

@@ -46,6 +46,11 @@ from investing_bot.services.analysis import (
     AnalysisValidationError,
     GrowthAnalysisService,
 )
+from investing_bot.services.strategy import (
+    StrategyEvaluationService,
+    StrategyEvaluationSummary,
+    StrategyPollingService,
+)
 
 __all__ = [
     "CivicTrackerCollector",
@@ -61,6 +66,9 @@ __all__ = [
     "AnalysisPollingService",
     "AnalysisValidationError",
     "GrowthAnalysisService",
+    "StrategyEvaluationService",
+    "StrategyEvaluationSummary",
+    "StrategyPollingService",
     "CompanyResolver",
     "DeterministicOrganizationExtractor",
     "NoopOrganizationExtractionFallback",

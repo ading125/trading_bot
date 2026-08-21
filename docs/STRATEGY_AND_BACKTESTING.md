@@ -1,7 +1,7 @@
 # Strategy and Backtesting
 
-**Status:** Framework specified; baseline parameters require research<br>
-**Last updated:** 2026-08-03
+**Status:** Strategy framework and two baseline hypotheses implemented; backtest validation pending<br>
+**Last updated:** 2026-08-21
 
 ## Strategy responsibility
 
@@ -104,7 +104,9 @@ Win rate is reported but never used alone. At minimum calculate:
 
 ## Publication gate
 
-A strategy may appear in the current-opportunity dashboard only after:
+Unvalidated hypotheses may appear in a clearly separated research section with
+live alerts disabled. A strategy may appear as an actionable current opportunity
+only after:
 
 - Its implementation and parameters are versioned.
 - Unit and look-ahead tests pass.

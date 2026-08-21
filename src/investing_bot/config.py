@@ -55,6 +55,9 @@ class AppSettings(BaseSettings):
     analysis_refresh_enabled: bool = True
     analysis_refresh_seconds: int = Field(default=3_600, ge=900, le=86_400)
     analysis_seed_symbols: str = "CVX"
+    strategy_refresh_enabled: bool = True
+    strategy_refresh_seconds: int = Field(default=900, ge=300, le=86_400)
+    strategy_seed_symbols: str = "CVX"
     groq_timeout_seconds: float = Field(default=60.0, ge=1, le=180)
     groq_retries: int = Field(default=2, ge=0, le=5)
 
@@ -103,6 +106,16 @@ class AppSettings(BaseSettings):
             dict.fromkeys(
                 symbol.strip().upper()
                 for symbol in self.analysis_seed_symbols.split(",")
+                if symbol.strip()
+            )
+        )
+
+    @property
+    def parsed_strategy_seed_symbols(self) -> tuple[str, ...]:
+        return tuple(
+            dict.fromkeys(
+                symbol.strip().upper()
+                for symbol in self.strategy_seed_symbols.split(",")
                 if symbol.strip()
             )
         )

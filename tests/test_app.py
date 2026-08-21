@@ -58,13 +58,16 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
             evidence = await client.get("/api/v1/candidates/CVX/evidence")
             analyses = await client.get("/api/v1/analyses")
             missing_analysis = await client.get("/api/v1/analyses/CVX")
+            strategies = await client.get("/api/v1/strategies")
+            setups = await client.get("/api/v1/setups")
+            setup_history = await client.get("/api/v1/setups/CVX/history")
             dashboard = await client.get("/")
 
     assert health.status_code == 200
     assert health.json()["status"] == "ok"
     assert ready.status_code == 200
     assert ready.json()["status"] == "ready"
-    assert ready.json()["migration_version"] == 6
+    assert ready.json()["migration_version"] == 7
     assert providers.status_code == 200
     assert len(providers.json()["providers"]) == 6
     assert providers.json()["selections"]["daily_bars"]["primary"]["provider_id"] == (
@@ -94,6 +97,19 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
     assert evidence.json() == {"items": [], "count": 0}
     assert analyses.json() == {"items": [], "count": 0}
     assert missing_analysis.status_code == 404
+    assert strategies.status_code == 200
+    assert strategies.json()["count"] == 2
+    assert {item["strategy_id"] for item in strategies.json()["items"]} == {
+        "breakout",
+        "trend_pullback",
+    }
+    assert all(
+        item["research_status"] == "hypothesis"
+        and item["live_alerts_enabled"] is False
+        for item in strategies.json()["items"]
+    )
+    assert setups.json() == {"items": [], "count": 0}
+    assert setup_history.json() == {"items": [], "count": 0}
     assert dashboard.status_code == 200
     assert "The local research service is running." in dashboard.text
     assert "No recommendation is generated" in dashboard.text
@@ -101,6 +117,8 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
     assert "Market bars" in dashboard.text
     assert "Current verified companies" in dashboard.text
     assert "Latest AI assessments" in dashboard.text
+    assert "Technical strategy hypotheses" in dashboard.text
+    assert "These baselines are implementation hypotheses" in dashboard.text
     assert "OFFLINE ANALYSIS — RECORDED FALLBACK" in dashboard.text
     assert "No analysis evidence is sent to a hosted AI." in dashboard.text
     assert "fixture_recorded · recorded-analysis-v1" in dashboard.text

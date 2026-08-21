@@ -1,7 +1,7 @@
 # Project Outline
 
-**Status:** Ingestion, candidate resolution, and live Groq-backed AI-analysis vertical slice implemented<br>
-**Last updated:** 2026-08-20
+**Status:** Ingestion through deterministic strategy hypotheses implemented; backtesting is next<br>
+**Last updated:** 2026-08-21
 
 ## System flow
 

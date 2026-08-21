@@ -1,7 +1,7 @@
 # Architecture
 
-**Status:** Milestones 1–5 implemented; later components proposed<br>
-**Last updated:** 2026-08-20
+**Status:** Milestones 1–7 implemented; backtest and operations components remain proposed<br>
+**Last updated:** 2026-08-21
 
 ## Components
 

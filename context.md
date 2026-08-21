@@ -1,7 +1,7 @@
 # Project Context
 
-**Status:** Milestones 1–5 implemented<br>
-**Last updated:** 2026-08-20
+**Status:** Milestones 1–7 implemented; Milestone 8 backtesting is next<br>
+**Last updated:** 2026-08-21
 
 ## Purpose
 
@@ -104,15 +104,25 @@ The current environment has a Ryzen 5 3600, 12 logical CPUs, approximately 8 GB 
   a bounded AI-extraction seam, provider-verified ticker resolution,
   ambiguity/manual-review states, exact source passages, and an expiring
   candidate union across S&P membership, CivicTracker, news, and earnings.
-- The first Milestone 6 vertical slice provides bounded/deduplicated evidence
+- Milestone 6 provides bounded/deduplicated evidence
   packages, strict structured-output and citation validation, provider-aware
   caching, immutable assessment history, prospective 5/10/20-session outcome
-  slots, read-only analysis APIs, background CVX fixture analysis, and dashboard
-  thesis/score/risk presentation. No external AI provider is called yet.
+  slots, read-only analysis APIs, background CVX analysis, and dashboard
+  thesis/score/risk presentation. Live analysis uses Groq's fixed
+  `openai/gpt-oss-120b` model only when the encrypted vault is explicitly
+  unlocked, with the recorded provider as a safe fallback.
 - The provider-independent credential vault, terminal-only entry commands,
   explicit server unlock, and sanitized status API are implemented with
-  Argon2id-derived AES-256-GCM encryption. A live hosted-LLM adapter still
-  requires an explicit provider choice before Milestone 6 can be called complete.
+  Argon2id-derived AES-256-GCM encryption.
+- Milestone 7 provides a source-controlled strategy protocol and registry,
+  validated parameters, immutable point-in-time market frames, daily trend,
+  relative-strength, volatility, liquidity, breakout, and optional completed
+  15-minute features, plus trend-pullback and range-breakout hypotheses.
+  Evaluations are restricted to active AI-qualified candidates, pin one market
+  provider, persist complete explanations and entry/stop/exit intents, cache
+  unchanged inputs, reject future or mixed-provider bars, and preserve the last
+  state while blocking confirmation on stale data.
 - Live market polling is intentionally opt-in and initially limited to a
-  configurable seed watchlist. No investment setup is published yet.
+  configurable seed watchlist. Strategy output is explicitly unvalidated
+  hypothesis research; live alerts remain disabled until Milestone 8 acceptance.
 - Docker acceptance checks remain pending in an environment with Docker available.

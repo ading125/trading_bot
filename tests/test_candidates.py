@@ -54,7 +54,7 @@ def setup_candidates(
 ]:
     database = Database(tmp_path / "investing_bot.duckdb")
     database.connect()
-    assert database.migrate() == 6
+    assert database.migrate() == 7
     repository = CandidateRepository(database)
     provider = RecordedFixtureProvider("fixture_recorded")
     registry = ProviderRegistry()

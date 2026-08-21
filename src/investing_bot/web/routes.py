@@ -12,7 +12,12 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
-from investing_bot.models import BarInterval, PriceAdjustment, ProviderCapability
+from investing_bot.models import (
+    BarInterval,
+    PriceAdjustment,
+    ProviderCapability,
+    StrategyManifest,
+)
 from investing_bot.providers.contracts import (
     ConnectionTestResult,
     ProviderManifest,
@@ -29,6 +34,7 @@ from investing_bot.db import (
     MarketStatus,
     ResolutionStatus,
     StoredSocialPost,
+    StoredStrategyEvaluation,
 )
 
 
@@ -175,6 +181,20 @@ class AnalysisOutcomesResponse(BaseModel):
     count: int = Field(ge=0)
 
 
+class StrategyRegistryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: tuple[StrategyManifest, ...]
+    count: int = Field(ge=0)
+
+
+class StrategyEvaluationsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: tuple[StoredStrategyEvaluation, ...]
+    count: int = Field(ge=0)
+
+
 @router.get("/api/v1/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     """Process-liveness endpoint that does not depend on external services."""
@@ -237,6 +257,16 @@ async def dashboard(request: Request) -> HTMLResponse:
         if hasattr(request.app.state, "analyses")
         else []
     )
+    strategy_manifests = (
+        request.app.state.strategy_registry.manifests()
+        if hasattr(request.app.state, "strategy_registry")
+        else ()
+    )
+    strategy_evaluations = (
+        request.app.state.strategy_evaluations.list_latest(limit=20)
+        if hasattr(request.app.state, "strategy_evaluations")
+        else []
+    )
     credentials = (
         provider_manager.credentials if provider_manager is not None else None
     )
@@ -266,6 +296,13 @@ async def dashboard(request: Request) -> HTMLResponse:
             "analysis_count": (
                 request.app.state.analyses.count()
                 if hasattr(request.app.state, "analyses")
+                else 0
+            ),
+            "strategy_manifests": strategy_manifests,
+            "strategy_evaluations": strategy_evaluations,
+            "strategy_evaluation_count": (
+                request.app.state.strategy_evaluations.count()
+                if hasattr(request.app.state, "strategy_evaluations")
                 else 0
             ),
             "credential_status": credential_status,
@@ -503,6 +540,38 @@ async def analyses(
 ) -> AssessmentsResponse:
     items = tuple(request.app.state.analyses.list_latest(limit=limit))
     return AssessmentsResponse(items=items, count=len(items))
+
+
+@router.get("/api/v1/strategies", response_model=StrategyRegistryResponse)
+async def strategies(request: Request) -> StrategyRegistryResponse:
+    items = request.app.state.strategy_registry.manifests()
+    return StrategyRegistryResponse(items=items, count=len(items))
+
+
+@router.get("/api/v1/setups", response_model=StrategyEvaluationsResponse)
+async def strategy_setups(
+    request: Request, limit: int = Query(default=100, ge=1, le=500)
+) -> StrategyEvaluationsResponse:
+    items = tuple(request.app.state.strategy_evaluations.list_latest(limit=limit))
+    return StrategyEvaluationsResponse(items=items, count=len(items))
+
+
+@router.get(
+    "/api/v1/setups/{symbol}/history",
+    response_model=StrategyEvaluationsResponse,
+)
+async def strategy_setup_history(
+    request: Request,
+    symbol: str,
+    strategy_id: str | None = Query(default=None, min_length=1, max_length=80),
+    limit: int = Query(default=200, ge=1, le=500),
+) -> StrategyEvaluationsResponse:
+    items = tuple(
+        request.app.state.strategy_evaluations.history(
+            _ticker(symbol), strategy_id=strategy_id, limit=limit
+        )
+    )
+    return StrategyEvaluationsResponse(items=items, count=len(items))
 
 
 @router.get("/api/v1/analyses/{symbol}", response_model=AIAssessment)

@@ -1,7 +1,7 @@
 # Implementation Plan
 
-**Status:** Milestones 1–2 implemented; Docker runtime acceptance checks pending<br>
-**Last updated:** 2026-08-17
+**Status:** Milestones 1–7 implemented; Milestone 8 is next<br>
+**Last updated:** 2026-08-21
 
 ## Guiding approach
 
@@ -140,6 +140,9 @@ Completion criteria:
 
 ## Milestone 7 — Strategy framework and baseline research
 
+**Implementation status:** Complete as of 2026-08-21. The baselines remain
+unvalidated hypotheses by design; research acceptance belongs to Milestone 8.
+
 Deliverables:
 
 - Trusted strategy protocol, registry, parameter schemas, market frames, and explanation contract.
@@ -155,6 +158,8 @@ Completion criteria:
 - No strategy is labeled validated merely because implementation tests pass.
 
 ## Milestone 8 — Backtester and research acceptance
+
+**Implementation status:** Next milestone.
 
 Deliverables:
 

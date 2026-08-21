@@ -31,6 +31,7 @@ from investing_bot.db.analysis import (
     AnalysisOutcome,
     AnalysisRepository,
 )
+from investing_bot.db.strategy import StoredStrategyEvaluation, StrategyRepository
 
 __all__ = [
     "Database",
@@ -57,6 +58,8 @@ __all__ = [
     "AnalysisEvidencePackage",
     "AnalysisOutcome",
     "AnalysisRepository",
+    "StoredStrategyEvaluation",
+    "StrategyRepository",
     "PostWriteKind",
     "SocialPostRepository",
     "StoredSocialPost",
