@@ -283,10 +283,13 @@ The following sections record settled decisions and their reasoning. They are no
   through the recorded structured-analysis fallback.
 - Kept LLM entity extraction disabled: this increment uses the hosted model only
   for evidence analysis and does not broaden what data leaves the local machine.
-- Verified 119 offline tests, including Groq request/schema behavior, credential
+- Verified 120 offline tests, including Groq request/schema behavior, credential
   reference forwarding, sanitized errors, migration 6, and assessment persistence.
   A real Groq call remains an explicit user-run step because vault unlock material
   is never requested through chat or automation.
+- Added a prominent dashboard mode banner derived from sanitized provider health:
+  live Groq, deterministic recorded fallback, or analysis unavailable. This makes
+  the security/runtime distinction visible without adding browser-based unlock.
 
 ## Current assumptions to validate experimentally
 

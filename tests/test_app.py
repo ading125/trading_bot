@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
+from datetime import UTC, datetime
 from hashlib import sha256
+from pathlib import Path
 
 from httpx2 import ASGITransport, AsyncClient
 import pytest
@@ -12,9 +13,18 @@ from investing_bot.db import Database, JobRunRepository, JobStatus
 from investing_bot.models import ProviderCapability
 from investing_bot.providers import (
     CapabilitySelection,
+    CredentialPresenceStore,
     ProviderConfiguration,
+    ProviderManager,
     ProviderTarget,
+    build_default_registry,
+    default_provider_configuration,
 )
+from investing_bot.providers.contracts import (
+    ConnectionTestResult,
+    ProviderHealthState,
+)
+from investing_bot.web.routes import _analysis_mode_view
 
 
 @pytest.mark.anyio
@@ -91,6 +101,9 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
     assert "Market bars" in dashboard.text
     assert "Current verified companies" in dashboard.text
     assert "Latest AI assessments" in dashboard.text
+    assert "OFFLINE ANALYSIS — RECORDED FALLBACK" in dashboard.text
+    assert "No analysis evidence is sent to a hosted AI." in dashboard.text
+    assert "fixture_recorded · recorded-analysis-v1" in dashboard.text
 
     for response in (health, ready, dashboard):
         assert response.headers["x-content-type-options"] == "nosniff"
@@ -98,6 +111,34 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
         assert response.headers["content-security-policy"].startswith(
             "default-src 'self'"
         )
+
+
+def test_analysis_mode_reports_live_hosted_provider() -> None:
+    credentials = CredentialPresenceStore(references=("cred_groq",))
+    manager = ProviderManager(
+        registry=build_default_registry(credentials=credentials),
+        configuration=default_provider_configuration(live_analysis=True),
+        credentials=credentials,
+    )
+    health = ConnectionTestResult(
+        provider_id="groq",
+        capability=ProviderCapability.STRUCTURED_LLM,
+        state=ProviderHealthState.HEALTHY,
+        checked_at=datetime(2026, 8, 20, 18, 0, tzinfo=UTC),
+        latency_ms=25,
+    )
+
+    mode = _analysis_mode_view(manager, (health,))
+
+    assert mode == {
+        "state": "live",
+        "title": "LIVE AI ACTIVE",
+        "detail": (
+            "New assessments use the hosted model with bounded, "
+            "source-attributed evidence."
+        ),
+        "provider": "groq · openai/gpt-oss-120b",
+    }
 
 
 @pytest.mark.anyio

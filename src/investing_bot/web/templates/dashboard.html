@@ -17,6 +17,19 @@
       </span>
     </header>
     <main>
+      <section
+        class="analysis-mode-banner analysis-mode-{{ analysis_mode.state }}"
+        aria-label="AI analysis mode"
+        role="status"
+      >
+        <span class="analysis-mode-indicator" aria-hidden="true"></span>
+        <div class="analysis-mode-copy">
+          <span class="analysis-mode-kicker">AI analysis mode</span>
+          <strong class="analysis-mode-title">{{ analysis_mode.title }}</strong>
+          <span class="analysis-mode-detail">{{ analysis_mode.detail }}</span>
+        </div>
+        <span class="analysis-mode-provider">{{ analysis_mode.provider }}</span>
+      </section>
       <section class="hero">
         <p class="eyebrow">Market and CivicTracker collection</p>
         <h2>The local research service is running.</h2>

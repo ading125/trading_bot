@@ -53,6 +53,69 @@ h2 { max-width: 14ch; font-size: clamp(2.3rem, 7vw, 5.5rem); line-height: .95; l
 .status-ready { color: var(--accent); background: #123228; }
 .status-waiting { color: #ffd786; background: #382b12; }
 
+.analysis-mode-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid;
+  border-radius: 1rem;
+  background: var(--surface);
+}
+
+.analysis-mode-indicator {
+  flex: 0 0 auto;
+  width: .72rem;
+  height: .72rem;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 .28rem color-mix(in srgb, currentColor 17%, transparent);
+}
+
+.analysis-mode-copy {
+  display: grid;
+  gap: .18rem;
+  min-width: 0;
+}
+
+.analysis-mode-kicker {
+  color: var(--muted);
+  font-size: .68rem;
+  font-weight: 750;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.analysis-mode-title { font-size: .98rem; letter-spacing: .02em; }
+.analysis-mode-detail { color: var(--muted); font-size: .8rem; line-height: 1.4; }
+.analysis-mode-provider {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: .45rem .7rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+.analysis-mode-live {
+  color: var(--accent);
+  border-color: #2d765c;
+  background: linear-gradient(110deg, #102b22, var(--surface));
+}
+
+.analysis-mode-offline {
+  color: #ffd786;
+  border-color: #6c572a;
+  background: linear-gradient(110deg, #2b2517, var(--surface));
+}
+
+.analysis-mode-unavailable {
+  color: #ff9c9c;
+  border-color: #704040;
+  background: linear-gradient(110deg, #2b1919, var(--surface));
+}
+
 .hero { padding: 8vh 0 10vh; }
 .hero > p:last-child { max-width: 62ch; color: var(--muted); font-size: 1.05rem; line-height: 1.7; }
 
@@ -100,6 +163,8 @@ h2 { max-width: 14ch; font-size: clamp(2.3rem, 7vw, 5.5rem); line-height: .95; l
 .provider-unhealthy, .provider-locked, .provider-unsupported { color: #ff9c9c; }
 
 @media (max-width: 720px) {
+  .analysis-mode-banner { align-items: flex-start; flex-wrap: wrap; }
+  .analysis-mode-provider { width: 100%; margin-left: 1.7rem; text-align: center; }
   .grid { grid-template-columns: 1fr; }
   .hero { padding-top: 4vh; }
   .provider-row { grid-template-columns: 1fr; gap: .3rem; }

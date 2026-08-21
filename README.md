@@ -128,7 +128,7 @@ provider, model, adapter, request ID, configuration, and input/output token
 counts. Requests use strict JSON Schema output, bounded source evidence, citation
 validation, sanitized errors, and the recorded provider as a pre-run fallback.
 
-Verification: 119 offline tests cover provider contracts, CivicTracker
+Verification: 120 offline tests cover provider contracts, CivicTracker
 collection, Yahoo normalization, incremental market coverage,
 validation/quarantine, revision history, actual Parquet publication, deterministic
 company resolution, ambiguity/manual-review behavior, source provenance, and

@@ -17,6 +17,7 @@ from investing_bot.providers.contracts import (
     ConnectionTestResult,
     ProviderManifest,
 )
+from investing_bot.providers.manager import ProviderManager
 from investing_bot.db import (
     AIAssessment,
     AnalysisEvidencePackage,
@@ -217,6 +218,7 @@ async def dashboard(request: Request) -> HTMLResponse:
     provider_health = (
         provider_manager.health_snapshot() if provider_manager is not None else ()
     )
+    analysis_mode = _analysis_mode_view(provider_manager, provider_health)
     healthy_providers = len(
         {item.provider_id for item in provider_health if item.available}
     )
@@ -251,6 +253,7 @@ async def dashboard(request: Request) -> HTMLResponse:
             "migration_version": database.latest_migration if database else None,
             "version": APP_VERSION,
             "provider_health": provider_health,
+            "analysis_mode": analysis_mode,
             "healthy_providers": healthy_providers,
             "market_status": market_status,
             "candidates": candidates,
@@ -283,6 +286,59 @@ async def dashboard(request: Request) -> HTMLResponse:
             ),
         },
     )
+
+
+def _analysis_mode_view(
+    manager: ProviderManager | None,
+    health_results: tuple[ConnectionTestResult, ...],
+) -> dict[str, str]:
+    """Describe the structured-analysis provider that would be selected now."""
+
+    unavailable = {
+        "state": "unavailable",
+        "title": "AI ANALYSIS UNAVAILABLE",
+        "detail": "No configured structured-analysis provider is currently available.",
+        "provider": "No provider ready",
+    }
+    if manager is None:
+        return unavailable
+    selection = manager.configuration.selections.get(
+        ProviderCapability.STRUCTURED_LLM
+    )
+    if selection is None:
+        return unavailable
+    health_by_provider = {
+        item.provider_id: item
+        for item in health_results
+        if item.capability is ProviderCapability.STRUCTURED_LLM
+    }
+    for target in selection.ordered_targets:
+        health = health_by_provider.get(target.provider_id)
+        if health is None or not health.available:
+            continue
+        manifest = manager.registry.manifest(target.provider_id)
+        model = manifest.model_id or manifest.adapter_version
+        provider = f"{manifest.provider_id} · {model}"
+        if manifest.fixture:
+            return {
+                "state": "offline",
+                "title": "OFFLINE ANALYSIS — RECORDED FALLBACK",
+                "detail": (
+                    "New assessments use deterministic recorded output. "
+                    "No analysis evidence is sent to a hosted AI."
+                ),
+                "provider": provider,
+            }
+        return {
+            "state": "live",
+            "title": "LIVE AI ACTIVE",
+            "detail": (
+                "New assessments use the hosted model with bounded, "
+                "source-attributed evidence."
+            ),
+            "provider": provider,
+        }
+    return unavailable
 
 
 @router.get("/api/v1/providers", response_model=ProviderDiscoveryResponse)
