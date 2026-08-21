@@ -1,6 +1,6 @@
 # Provider Framework
 
-**Status:** Provider framework plus CivicTracker and Yahoo adapters implemented<br>
+**Status:** Provider framework plus CivicTracker, Yahoo, and Groq adapters implemented<br>
 **Last updated:** 2026-08-20
 
 ## Purpose
@@ -26,8 +26,10 @@ and recorded fallback attempts.
 
 The optional local file `/data/providers.json` selects a primary provider and
 ordered fallbacks for each capability. [providers.example.json](../providers.example.json)
-shows the complete schema. If that file is absent, deterministic recorded
-fixtures are selected so the framework can operate without external accounts.
+shows the complete schema. If that file is absent, development/production mode
+selects live CivicTracker, Yahoo, and Groq adapters with recorded fallbacks;
+tests select only deterministic recorded fixtures. Groq requires the
+`cred_groq` vault reference and is skipped safely while the vault is locked.
 
 At the start of a unit of work, the provider manager:
 
@@ -74,7 +76,9 @@ deterministic; they are not live market-data sources.
 The live CivicTracker JSON adapter and its HTML fallback are implemented in
 Milestone 3. The Yahoo market/event/symbol adapter is implemented in Milestone 4
 and is used through the provider-neutral resolver in Milestone 5. The recorded
-structured-LLM provider now exercises the complete Milestone 6 evidence,
-validation, caching, persistence, API, and dashboard path. A live hosted-LLM
-adapter remains pending a provider choice; the encrypted vault and unlock flow
-are implemented independently of that choice.
+structured-LLM provider exercises the complete Milestone 6 evidence, validation,
+caching, persistence, API, and dashboard path offline. The Groq adapter uses
+`openai/gpt-oss-120b`, strict structured output, bounded evidence, normalized
+quota/token metadata, sanitized retry/error mapping, and the same provider-neutral
+contract. The encrypted vault and explicit unlock flow keep its usable key out
+of configuration and persistent application records.

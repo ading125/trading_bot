@@ -1,6 +1,6 @@
 # Investing Bot
 
-**Status:** Milestones 1–5 plus the fixture-backed Milestone 6 vertical slice implemented; container runtime verification pending<br>
+**Status:** Milestones 1–5 plus live Groq-backed Milestone 6 analysis implemented; container runtime verification pending<br>
 **Last updated:** 2026-08-20
 
 Investing Bot is a private, locally hosted stock-research tool. It discovers public companies from current news, earnings activity, the S&P 500, and selected political-policy sources; uses an AI model to evaluate growth potential; and passes qualified companies to a deterministic, backtested strategy that calculates potential entries, exits, and invalidation levels.
@@ -62,7 +62,7 @@ python -m pytest
 Run the service directly with a writable local data directory:
 
 ```bash
-INVESTING_BOT_DATA_DIR="$PWD/data" python -m investing_bot
+INVESTING_BOT_DATA_DIR="$PWD/data" .venv/bin/python -m investing_bot
 ```
 
 When Docker is available, build and run the hardened local container:
@@ -77,14 +77,16 @@ keys in `.env`; use the encrypted credential-vault commands described below.
 Credential secrets are entered only through hidden interactive-terminal prompts:
 
 ```bash
-python -m investing_bot credentials init
-python -m investing_bot credentials set cred_provider_name
-python -m investing_bot credentials status
-python -m investing_bot serve --unlock-credentials
+INVESTING_BOT_DATA_DIR="$PWD/data" .venv/bin/python -m investing_bot credentials init
+INVESTING_BOT_DATA_DIR="$PWD/data" .venv/bin/python -m investing_bot credentials set cred_groq
+INVESTING_BOT_DATA_DIR="$PWD/data" .venv/bin/python -m investing_bot credentials status
+INVESTING_BOT_DATA_DIR="$PWD/data" .venv/bin/python -m investing_bot serve --unlock-credentials
 ```
 
 The existing `python -m investing_bot` start command remains unchanged and
-starts with the vault locked. Vault files live under `data/credentials` with
+starts with the vault locked. In that mode, live Groq analysis is unavailable
+and the analysis capability safely falls back to the recorded fixture. Vault
+files live under `data/credentials` with
 owner-only permissions. References, initialization state, and locked/unlocked
 state are safe to inspect; decrypted values are never returned by the API.
 
@@ -114,23 +116,26 @@ snapshot, CivicTracker mentions, news, and earnings. View them at
 `/api/v1/candidates/{symbol}/evidence` route. Ambiguous and unresolved mentions
 remain visible at `/api/v1/resolutions` but cannot enter the candidate list.
 
-The first Milestone 6 vertical slice analyzes the bounded `CVX` seed through the
-recorded structured-LLM fixture. It stores immutable evidence packages,
+Milestone 6 analyzes the bounded `CVX` seed with Groq's fixed
+`openai/gpt-oss-120b` model whenever the vault is explicitly unlocked. It stores
+immutable evidence packages,
 provider-version-aware cache keys, assessment history, and prospective 5/10/20
 session outcome slots. The dashboard shows the latest thesis, scores, catalysts,
 bear case, risks, uncertainty, and evidence link. Read-only records are also
 available at `/api/v1/analyses`, `/api/v1/analyses/{symbol}`, and
-`/api/v1/analyses/{symbol}/evidence`. The encrypted credential vault and safe
-unlock boundary are implemented; selecting and integrating the first live
-hosted provider remains the next Milestone 6 increment.
+`/api/v1/analyses/{symbol}/evidence`. Every assessment records the actual
+provider, model, adapter, request ID, configuration, and input/output token
+counts. Requests use strict JSON Schema output, bounded source evidence, citation
+validation, sanitized errors, and the recorded provider as a pre-run fallback.
 
-Verification: 114 offline tests cover provider contracts, CivicTracker
+Verification: 119 offline tests cover provider contracts, CivicTracker
 collection, Yahoo normalization, incremental market coverage,
 validation/quarantine, revision history, actual Parquet publication, deterministic
 company resolution, ambiguity/manual-review behavior, source provenance, and
 candidate expiry, source-bounded analysis validation, caching, history, and
 political-only qualification rejection, credential encryption, wrong-secret and
-tamper rejection, locked-state isolation, and unsafe-permission rejection. Live
+tamper rejection, locked-state isolation, unsafe-permission rejection, strict
+Groq request/response handling, token lineage, and sanitized provider failures. Live
 SPY and Chevron Yahoo checks and
 the local fixture-backed CVX analysis were smoke-tested successfully on
 2026-08-20.

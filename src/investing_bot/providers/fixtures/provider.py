@@ -86,6 +86,11 @@ def build_fixture_manifest(
         schema_versions={capability: _SCHEMAS[capability] for capability in supported},
         authentication_required=authentication_required,
         credential_kind="api_token" if authentication_required else None,
+        model_id=(
+            "recorded-analysis-v1"
+            if ProviderCapability.STRUCTURED_LLM in supported
+            else None
+        ),
         rate_limit=RateLimitPolicy(requests=1_000, window_seconds=3_600),
         supported_intervals=frozenset({"1d", "15m"}),
         optional_features=frozenset({"recorded_payloads", "cursor_pagination"}),
@@ -381,7 +386,9 @@ class RecordedFixtureProvider:
         )
 
     async def analyze(
-        self, request: StructuredAnalysisRequest
+        self,
+        request: StructuredAnalysisRequest,
+        credential_ref: CredentialReference | None = None,
     ) -> ProviderResult[StructuredAnalysis]:
         capability = ProviderCapability.STRUCTURED_LLM
         self._maybe_fail(capability)

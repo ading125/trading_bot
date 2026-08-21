@@ -1,6 +1,6 @@
 # Project Outline
 
-**Status:** Ingestion, candidate resolution, and fixture-backed AI-analysis vertical slice implemented<br>
+**Status:** Ingestion, candidate resolution, and live Groq-backed AI-analysis vertical slice implemented<br>
 **Last updated:** 2026-08-20
 
 ## System flow

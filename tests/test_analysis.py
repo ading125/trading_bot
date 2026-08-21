@@ -52,7 +52,7 @@ def setup_analysis(
 ]:
     database = Database(tmp_path / "investing_bot.duckdb")
     database.connect()
-    assert database.migrate() == 5
+    assert database.migrate() == 6
     candidates = CandidateRepository(database)
     candidates.store_evidence(
         CandidateEvidence(

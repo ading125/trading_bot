@@ -115,13 +115,14 @@ Completion criteria:
 
 ## Milestone 6 — AI growth analysis
 
-Implementation status: the safe first vertical slice is complete using the
-recorded structured-analysis provider. Evidence packages, validation, cache and
-history persistence, prospective outcome slots, APIs, background scheduling,
-and dashboard presentation are implemented. The authenticated encrypted vault,
-terminal-only credential entry, explicit unlock, provider-store injection, and
-sanitized status reporting are also implemented. The live hosted-provider
-adapter remains pending an explicit provider choice.
+Implementation status: the vertical slice is complete with both deterministic
+recorded analysis and a live Groq adapter for `openai/gpt-oss-120b`. Evidence
+packages, strict structured output, local citation validation, model-aware cache
+and history persistence, token usage, prospective outcome slots, APIs,
+background scheduling, and dashboard presentation are implemented. The
+authenticated encrypted vault, terminal-only credential entry, explicit unlock,
+provider-store injection, sanitized status reporting, and recorded-provider
+fallback are also implemented.
 
 Deliverables:
 

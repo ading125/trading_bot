@@ -1,0 +1,33 @@
+{
+  "retrieved_at": "2026-08-14T14:00:00Z",
+  "bars": [
+    {"id": "spy-daily-raw", "symbol": "SPY", "interval": "1d", "bar_start": "2026-08-13T13:30:00Z", "bar_end": "2026-08-13T20:00:00Z", "session_date": "2026-08-13", "exchange_timezone": "America/New_York", "open": 691.10, "high": 696.40, "low": 689.75, "close": 695.20, "volume": 61234000, "adjustment": "raw"},
+    {"id": "spy-daily-adjusted", "symbol": "SPY", "interval": "1d", "bar_start": "2026-08-13T13:30:00Z", "bar_end": "2026-08-13T20:00:00Z", "session_date": "2026-08-13", "exchange_timezone": "America/New_York", "open": 690.75, "high": 696.05, "low": 689.40, "close": 694.85, "volume": 61234000, "adjustment": "adjusted"},
+    {"id": "cvx-daily-raw", "symbol": "CVX", "interval": "1d", "bar_start": "2026-08-13T13:30:00Z", "bar_end": "2026-08-13T20:00:00Z", "session_date": "2026-08-13", "exchange_timezone": "America/New_York", "open": 168.20, "high": 171.10, "low": 167.85, "close": 170.45, "volume": 8240000, "adjustment": "raw"},
+    {"id": "cvx-15m-raw", "symbol": "CVX", "interval": "15m", "bar_start": "2026-08-14T13:30:00Z", "bar_end": "2026-08-14T13:45:00Z", "session_date": "2026-08-14", "exchange_timezone": "America/New_York", "open": 170.50, "high": 170.90, "low": 170.35, "close": 170.80, "volume": 410000, "adjustment": "raw"}
+  ],
+  "quotes": [
+    {"id": "cvx-quote", "symbol": "CVX", "as_of": "2026-08-14T13:45:00Z", "price": 170.80, "bid": 170.78, "ask": 170.82, "currency": "USD"}
+  ],
+  "corporate_actions": [
+    {"id": "cvx-dividend", "symbol": "CVX", "action_type": "dividend", "effective_at": "2026-06-10T13:30:00Z", "cash_amount": 1.71, "split_ratio": null, "currency": "USD"}
+  ],
+  "symbols": [
+    {"id": "symbol-cvx", "symbol": "CVX", "company_name": "Chevron Corporation", "exchange": "NYSE", "quote_type": "EQUITY", "active": true, "confidence": 0.99, "event_at": "2026-08-14T13:00:00Z"},
+    {"id": "symbol-aapl", "symbol": "AAPL", "company_name": "Apple Inc.", "exchange": "NASDAQ", "quote_type": "EQUITY", "active": true, "confidence": 0.99, "event_at": "2026-08-14T13:00:00Z"}
+  ],
+  "news": [
+    {"id": "news-cvx-1", "symbol": "CVX", "headline": "Chevron updates production outlook", "summary": "Recorded fixture summary for provider contract testing.", "publisher": "Fixture Wire", "url": "https://example.com/fixture/chevron-outlook", "published_at": "2026-08-14T12:30:00Z"}
+  ],
+  "earnings": [
+    {"id": "earnings-cvx-q2", "symbol": "CVX", "fiscal_period": "2026-Q2", "report_date": "2026-08-01", "reported_eps": 2.88, "estimated_eps": 2.71, "revenue": 52100000000, "event_at": "2026-08-01T11:00:00Z", "known_available_at": "2026-08-01T11:05:00Z"}
+  ],
+  "social_posts": [
+    {"id": "post-653387", "member_id": "3094abf7-4a95-4b8d-8c8d-af7d1c3747a1", "platform": "truth_social", "post_id": "653387", "content": "Mike Wirth, Chairman and CEO of Chevron, discussed the company.", "original_url": "https://truthsocial.com/@realDonaldTrump/117031897808226413", "published_at": "2026-08-03T13:50:00Z", "is_media_only": false, "is_deleted": false},
+    {"id": "post-653510", "member_id": "3094abf7-4a95-4b8d-8c8d-af7d1c3747a1", "platform": "truth_social", "post_id": "653510", "content": "", "original_url": "https://truthsocial.com/@realDonaldTrump/117033401121285671", "published_at": "2026-08-03T20:13:00Z", "is_media_only": true, "is_deleted": false},
+    {"id": "post-653600", "member_id": "3094abf7-4a95-4b8d-8c8d-af7d1c3747a1", "platform": "truth_social", "post_id": "653600", "content": "A third recorded post for cursor pagination.", "original_url": "https://truthsocial.com/@realDonaldTrump/117033401121285999", "published_at": "2026-08-04T14:00:00Z", "is_media_only": false, "is_deleted": false}
+  ],
+  "analyses": [
+    {"id": "analysis-cvx", "ticker": "CVX", "decision": "investigate", "growth_score": 68, "evidence_quality": 72, "policy_relevance": "low", "catalysts": ["Production outlook"], "earnings_assessment": "The supplied fixture is too limited for a definitive earnings conclusion.", "bullish_thesis": "Current supplied evidence supports further investigation.", "bearish_case": "Commodity prices and execution could weaken the thesis.", "risks": ["Commodity-price volatility"], "uncertainties": ["Limited fixture evidence"], "source_ids": ["news-cvx-1"]}
+  ]
+}

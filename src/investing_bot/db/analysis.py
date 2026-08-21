@@ -59,9 +59,12 @@ class AIAssessment(BaseModel):
     prompt_version: str
     output_schema_version: str
     provider_id: str
+    model_id: str
     adapter_version: str
     provider_request_id: str
     configuration_hash: str
+    input_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
     created_at: AwareDatetime
 
 
@@ -138,8 +141,17 @@ class AnalysisRepository:
         with self._database.transaction() as connection:
             connection.execute(
                 """
-                INSERT INTO ai_assessments VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                INSERT INTO ai_assessments (
+                    assessment_id, cache_key, evidence_hash, ticker, company_name,
+                    decision, growth_score, evidence_quality, policy_relevance,
+                    catalysts_json, earnings_assessment, bullish_thesis,
+                    bearish_case, risks_json, uncertainties_json, source_ids_json,
+                    prompt_version, output_schema_version, provider_id, model_id,
+                    adapter_version, provider_request_id, configuration_hash,
+                    input_tokens, output_tokens, created_at
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?
                 )
                 """,
                 [
@@ -162,9 +174,12 @@ class AnalysisRepository:
                     assessment.prompt_version,
                     assessment.output_schema_version,
                     assessment.provider_id,
+                    assessment.model_id,
                     assessment.adapter_version,
                     assessment.provider_request_id,
                     assessment.configuration_hash,
+                    assessment.input_tokens,
+                    assessment.output_tokens,
                     assessment.created_at,
                 ],
             )
@@ -229,7 +244,8 @@ assessment_id, cache_key, evidence_hash, ticker, company_name, decision,
 growth_score, evidence_quality, policy_relevance, catalysts_json,
 earnings_assessment, bullish_thesis, bearish_case, risks_json,
 uncertainties_json, source_ids_json, prompt_version, output_schema_version,
-provider_id, adapter_version, provider_request_id, configuration_hash, created_at
+provider_id, model_id, adapter_version, provider_request_id, configuration_hash,
+input_tokens, output_tokens, created_at
 """
 
 
@@ -264,8 +280,11 @@ _ASSESSMENT_FIELDS = (
     "prompt_version",
     "output_schema_version",
     "provider_id",
+    "model_id",
     "adapter_version",
     "provider_request_id",
     "configuration_hash",
+    "input_tokens",
+    "output_tokens",
     "created_at",
 )

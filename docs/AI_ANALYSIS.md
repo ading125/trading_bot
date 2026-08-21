@@ -1,6 +1,6 @@
 # AI Analysis
 
-**Status:** Version-one contract, fixture-backed vertical slice, and encrypted credential vault implemented; live hosted adapter pending<br>
+**Status:** Version-one contract and live Groq-backed vertical slice implemented<br>
 **Last updated:** 2026-08-20
 
 ## Role
@@ -60,7 +60,10 @@ Scores use a documented 0–100 rubric. Valid decisions are `qualify`, `investig
 
 ## LLM provider contract
 
-Prompt construction, evidence limits, schema validation, citation checks, caching, and qualification live outside provider adapters. An `LLMProvider` translates the canonical request and response plus normalized errors for a specific hosted or local service.
+The service owns prompt/schema versions, the evidence package, source limits,
+citation checks, caching, and qualification. An `LLMProvider` translates that
+canonical request into a vendor-specific prompt and response while applying any
+tighter provider/token bound and normalized errors for a hosted or local service.
 
 At connection test and startup, the adapter reports model availability, JSON Schema or structured-output support, context limit, token accounting, authentication state, rate/quota state, and the provider's configured retention policy. Missing optional features are handled explicitly; required structured output must be emulated safely and validated or the provider is rejected for this capability.
 
@@ -97,18 +100,21 @@ Once enough clean observations exist, the saved records can support a statistica
 
 ## Implemented vertical slice
 
-Migration 5 stores immutable evidence packages, validated assessment history,
-provider/configuration lineage, cache keys, and empty 5/10/20-session outcome
-slots. `AnalysisEvidenceBuilder` bounds and deduplicates active candidate
+Migrations 5 and 6 store immutable evidence packages, validated assessment
+history, provider/model/configuration lineage, token usage, cache keys, and empty
+5/10/20-session outcome slots. `AnalysisEvidenceBuilder` bounds and deduplicates active candidate
 evidence. `GrowthAnalysisService` pins the structured-LLM provider, reuses an
-assessment only when evidence, prompt/schema, provider, adapter, and provider
+assessment only when evidence, prompt/schema, provider, model, adapter, and provider
 configuration are unchanged, and rejects uncited output or a `qualify` decision
 supported only by CivicTracker/S&P-membership evidence.
 
-The runtime currently analyzes the bounded `CVX` seed with the deterministic
-recorded provider after candidate refresh. This proves the complete application
-contract without sending data externally or requiring a secret. Selecting and
-integrating a live hosted provider is the next increment and requires an
-explicit provider decision. The provider-independent Argon2id/AES-GCM vault,
-terminal-only credential entry, explicit server unlock, and sanitized status API
-are implemented.
+Outside tests, the runtime selects Groq's fixed `openai/gpt-oss-120b` adapter for
+the bounded `CVX` seed and falls back to the deterministic recorded provider if
+the vault is locked or the connection check fails. The adapter resolves
+`cred_groq` only for a request, calls Groq over HTTPS, sends at most 16,000
+characters of source evidence, requests strict JSON Schema output, validates the
+ticker and citations again locally, and records normalized quota and token use.
+It never stores the decrypted key on the provider object or exposes upstream
+error bodies. The provider-independent Argon2id/AES-GCM vault, terminal-only
+credential entry, explicit server unlock, and sanitized status API remain the
+credential boundary.

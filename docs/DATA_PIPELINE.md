@@ -117,8 +117,8 @@ syntax, and recognizes names with legal company suffixes. Unknown names query th
 configured `SymbolLookupProvider`. Low-confidence and closely tied alternatives
 remain unresolved or ambiguous and never silently produce a candidate.
 
-The bounded AI-extraction interface is present but intentionally uses a no-op
-implementation until Milestone 6 configures a hosted LLM. Any future suggestions
+The bounded AI-extraction interface is present but intentionally remains a no-op
+in the current scope; the hosted model is used only for evidence analysis. Any future suggestions
 must name text present in the source, classify the entity, stay within source and
 suggestion caps, and pass the same independent symbol-provider verification.
 

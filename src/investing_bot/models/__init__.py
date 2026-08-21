@@ -30,6 +30,7 @@ from investing_bot.models.provider import (
     StructuredAnalysisRequest,
     SymbolLookupRequest,
     SymbolMatch,
+    TokenUsage,
 )
 from investing_bot.models.source_post import SourcePost
 
@@ -64,4 +65,5 @@ __all__ = [
     "StructuredAnalysisRequest",
     "SymbolLookupRequest",
     "SymbolMatch",
+    "TokenUsage",
 ]

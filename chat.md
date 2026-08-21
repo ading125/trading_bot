@@ -262,6 +262,32 @@ The following sections record settled decisions and their reasoning. They are no
 - Kept the hosted-LLM provider decision open. The vault is vendor-independent,
   so this security work does not commit the user to a paid API or retention policy.
 
+## 2026-08-20 — Live Groq structured-analysis adapter
+
+- Selected Groq's `openai/gpt-oss-120b` as the first hosted analysis model while
+  preserving the provider-neutral structured-LLM contract and recorded fallback.
+- Kept the usable API key exclusively behind the existing `cred_groq` encrypted
+  vault reference. The adapter resolves it only for a connection check or model
+  request and exposes only sanitized authentication/transport status.
+- Sent only bounded, source-attributed evidence over HTTPS. The prompt treats
+  evidence as untrusted data, forbids outside/current facts, requests strict JSON
+  Schema output, and locally revalidates the ticker, scores, decision, and every
+  cited source ID before persistence.
+- Fixed the live model ID in the packaged provider manifest and added it to cache
+  identity and immutable assessment history so a model change cannot reuse an
+  incompatible cached result.
+- Added migration 6 for model lineage and input/output token accounting, then
+  displayed both beside each analysis in the dashboard.
+- Selected Groq only outside tests. Starting with the vault locked or failing a
+  pre-run Groq health check keeps deterministic application features available
+  through the recorded structured-analysis fallback.
+- Kept LLM entity extraction disabled: this increment uses the hosted model only
+  for evidence analysis and does not broaden what data leaves the local machine.
+- Verified 119 offline tests, including Groq request/schema behavior, credential
+  reference forwarding, sanitized errors, migration 6, and assessment persistence.
+  A real Groq call remains an explicit user-run step because vault unlock material
+  is never requested through chat or automation.
+
 ## Current assumptions to validate experimentally
 
 - The first baseline entry/exit algorithm should be simple, explainable, and parameterized; trend-pullback and breakout variants are leading candidates.

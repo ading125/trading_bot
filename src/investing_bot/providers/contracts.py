@@ -77,6 +77,7 @@ class ProviderManifest(BaseModel):
     schema_versions: dict[ProviderCapability, str]
     authentication_required: bool = False
     credential_kind: str | None = Field(default=None, max_length=80)
+    model_id: str | None = Field(default=None, min_length=1, max_length=160)
     rate_limit: RateLimitPolicy | None = None
     supported_intervals: frozenset[str] = frozenset()
     optional_features: frozenset[str] = frozenset()
@@ -91,6 +92,11 @@ class ProviderManifest(BaseModel):
             raise ValueError("authenticated providers require credential_kind")
         if not self.authentication_required and self.credential_kind is not None:
             raise ValueError("credential_kind is valid only when authentication is required")
+        if (
+            self.model_id is not None
+            and ProviderCapability.STRUCTURED_LLM not in self.capabilities
+        ):
+            raise ValueError("model_id is valid only for structured LLM providers")
         if any(not origin.startswith("https://") for origin in self.allowed_origins):
             raise ValueError("provider origins must use HTTPS")
         return self

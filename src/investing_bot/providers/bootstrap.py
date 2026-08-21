@@ -10,6 +10,10 @@ from investing_bot.providers.contracts import (
     ProviderConfiguration,
     ProviderTarget,
 )
+from investing_bot.providers.credentials import (
+    CredentialPresenceStore,
+    CredentialReferenceStore,
+)
 from investing_bot.providers.fixtures import (
     RecordedFixtureProvider,
     build_fixture_manifest,
@@ -21,6 +25,7 @@ from investing_bot.providers.civictracker import (
     build_json_manifest,
 )
 from investing_bot.providers.registry import ProviderRegistry
+from investing_bot.providers.groq import GroqStructuredLLMProvider, build_groq_manifest
 from investing_bot.providers.yahoo import YahooFinanceProvider, build_yahoo_manifest
 
 
@@ -37,6 +42,9 @@ def build_default_registry(
     yahoo_repair: bool = False,
     yahoo_timeout_seconds: float = 15.0,
     yahoo_retries: int = 2,
+    credentials: CredentialReferenceStore | None = None,
+    groq_timeout_seconds: float = 60.0,
+    groq_retries: int = 2,
 ) -> ProviderRegistry:
     """Register only providers compiled into this application version."""
 
@@ -69,11 +77,23 @@ def build_default_registry(
         retries=yahoo_retries,
     )
     registry.register(build_yahoo_manifest(), lambda: yahoo_provider)
+    credential_store = credentials or CredentialPresenceStore()
+    registry.register(
+        build_groq_manifest(),
+        lambda: GroqStructuredLLMProvider(
+            credential_store,
+            timeout_seconds=groq_timeout_seconds,
+            retries=groq_retries,
+        ),
+    )
     return registry
 
 
 def default_provider_configuration(
-    *, live_social: bool = False, live_market: bool = False
+    *,
+    live_social: bool = False,
+    live_market: bool = False,
+    live_analysis: bool = False,
 ) -> ProviderConfiguration:
     """Use live CivicTracker only in non-test runtime environments."""
 
@@ -103,17 +123,31 @@ def default_provider_configuration(
                 primary=ProviderTarget(provider_id="yahoo_finance"),
                 fallbacks=(ProviderTarget(provider_id=PRIMARY_FIXTURE_ID),),
             )
+    if live_analysis:
+        selections[ProviderCapability.STRUCTURED_LLM] = CapabilitySelection(
+            primary=ProviderTarget(
+                provider_id="groq",
+                credential_ref="cred_groq",
+            ),
+            fallbacks=(ProviderTarget(provider_id=PRIMARY_FIXTURE_ID),),
+        )
     return ProviderConfiguration(selections=selections)
 
 
 def load_provider_configuration(
-    path: Path, *, live_social: bool = False, live_market: bool = False
+    path: Path,
+    *,
+    live_social: bool = False,
+    live_market: bool = False,
+    live_analysis: bool = False,
 ) -> ProviderConfiguration:
     """Load an optional local selection file, falling back to recorded fixtures."""
 
     if not path.exists():
         return default_provider_configuration(
-            live_social=live_social, live_market=live_market
+            live_social=live_social,
+            live_market=live_market,
+            live_analysis=live_analysis,
         )
     if not path.is_file():
         raise ValueError("provider configuration path must be a regular file")

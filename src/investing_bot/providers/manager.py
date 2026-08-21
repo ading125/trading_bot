@@ -175,6 +175,7 @@ class ProviderManager:
                     provider=self.registry.create(target.provider_id),
                     manifest=self.registry.manifest(target.provider_id),
                     capability=capability,
+                    credential_ref=target.credential_ref,
                     run_id=run_id,
                     configuration_hash=self.configuration.configuration_hash,
                     fallback_attempts=tuple(attempts),
@@ -256,6 +257,7 @@ class PinnedProvider:
         provider: BaseProvider,
         manifest: ProviderManifest,
         capability: ProviderCapability,
+        credential_ref: str | None,
         run_id: str,
         configuration_hash: str,
         fallback_attempts: tuple[FallbackAttempt, ...],
@@ -263,6 +265,7 @@ class PinnedProvider:
         self._provider = provider
         self.manifest = manifest
         self.capability = capability
+        self.credential_ref = credential_ref
         self.run_id = run_id
         self.configuration_hash = configuration_hash
         self.fallback_attempts = fallback_attempts
@@ -337,7 +340,10 @@ class PinnedProvider:
                 "analysis output schema does not match the pinned provider contract"
             )
         provider = cast(StructuredLLMProvider, self._provider)
-        result = await provider.analyze(request)
+        if self.credential_ref is None:
+            result = await provider.analyze(request)
+        else:
+            result = await provider.analyze(request, self.credential_ref)
         allowed_ids = {item.source_id for item in request.evidence}
         for analysis in result.items:
             if analysis.ticker != request.ticker:

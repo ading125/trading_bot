@@ -55,6 +55,8 @@ class AppSettings(BaseSettings):
     analysis_refresh_enabled: bool = True
     analysis_refresh_seconds: int = Field(default=3_600, ge=900, le=86_400)
     analysis_seed_symbols: str = "CVX"
+    groq_timeout_seconds: float = Field(default=60.0, ge=1, le=180)
+    groq_retries: int = Field(default=2, ge=0, le=5)
 
     @field_validator("data_dir")
     @classmethod

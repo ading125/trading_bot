@@ -92,6 +92,7 @@ def create_app(
                 resolved_settings.provider_config_path,
                 live_social=resolved_settings.environment != "test",
                 live_market=resolved_settings.environment != "test",
+                live_analysis=resolved_settings.environment != "test",
             )
             provider_manager = ProviderManager(
                 registry=build_default_registry(
@@ -104,6 +105,9 @@ def create_app(
                     yahoo_repair=resolved_settings.yahoo_repair_enabled,
                     yahoo_timeout_seconds=resolved_settings.yahoo_timeout_seconds,
                     yahoo_retries=resolved_settings.yahoo_retries,
+                    credentials=credential_store,
+                    groq_timeout_seconds=resolved_settings.groq_timeout_seconds,
+                    groq_retries=resolved_settings.groq_retries,
                 ),
                 configuration=provider_configuration,
                 credentials=credential_store,

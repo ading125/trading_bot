@@ -163,7 +163,10 @@
             </div>
             <div class="analysis-footer">
               <span>{{ assessment.created_at.strftime('%b %d, %Y %I:%M %p') }}</span>
-              <span>{{ assessment.provider_id }}</span>
+              <span>{{ assessment.provider_id }} · {{ assessment.model_id }}</span>
+              {% if assessment.input_tokens is not none %}
+              <span>{{ assessment.input_tokens }} in / {{ assessment.output_tokens }} out</span>
+              {% endif %}
               <a href="/api/v1/analyses/{{ assessment.ticker }}/evidence">View cited evidence</a>
             </div>
           </article>

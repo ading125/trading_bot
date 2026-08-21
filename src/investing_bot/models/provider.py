@@ -362,6 +362,22 @@ class QuotaStatus(BaseModel):
         return self
 
 
+class TokenUsage(BaseModel):
+    """Provider-neutral token accounting for one model request."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+    total_tokens: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def total_covers_input_and_output(self) -> Self:
+        if self.total_tokens < self.input_tokens + self.output_tokens:
+            raise ValueError("total tokens cannot be below input plus output tokens")
+        return self
+
+
 class FallbackAttempt(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     provider_id: str
@@ -391,3 +407,4 @@ class ProviderResult(BaseModel, Generic[T]):
     provenance: ProviderProvenance
     page: PageInfo | None = None
     quota: QuotaStatus | None = None
+    usage: TokenUsage | None = None

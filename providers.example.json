@@ -8,6 +8,6 @@
     "news": {"primary": {"provider_id": "fixture_recorded"}, "fallbacks": [{"provider_id": "fixture_backup"}]},
     "earnings": {"primary": {"provider_id": "fixture_recorded"}, "fallbacks": [{"provider_id": "fixture_backup"}]},
     "social_posts": {"primary": {"provider_id": "fixture_recorded"}, "fallbacks": [{"provider_id": "fixture_backup"}]},
-    "structured_llm": {"primary": {"provider_id": "fixture_recorded"}, "fallbacks": [{"provider_id": "fixture_backup"}]}
+    "structured_llm": {"primary": {"provider_id": "groq", "credential_ref": "cred_groq"}, "fallbacks": [{"provider_id": "fixture_recorded"}]}
   }
 }

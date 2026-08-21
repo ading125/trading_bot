@@ -54,9 +54,9 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
     assert health.json()["status"] == "ok"
     assert ready.status_code == 200
     assert ready.json()["status"] == "ready"
-    assert ready.json()["migration_version"] == 5
+    assert ready.json()["migration_version"] == 6
     assert providers.status_code == 200
-    assert len(providers.json()["providers"]) == 5
+    assert len(providers.json()["providers"]) == 6
     assert providers.json()["selections"]["daily_bars"]["primary"]["provider_id"] == (
         "fixture_recorded"
     )

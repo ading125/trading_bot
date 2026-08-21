@@ -22,7 +22,7 @@ htmlcov/
 !.env.example
 
 # Local runtime data (fixtures should live under tests/fixtures instead)
-data/
+/data/
 *.duckdb
 *.duckdb.wal
 

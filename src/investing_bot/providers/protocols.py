@@ -91,5 +91,7 @@ class SocialPostsProvider(BaseProvider, Protocol):
 @runtime_checkable
 class StructuredLLMProvider(BaseProvider, Protocol):
     async def analyze(
-        self, request: StructuredAnalysisRequest
+        self,
+        request: StructuredAnalysisRequest,
+        credential_ref: CredentialReference | None = None,
     ) -> ProviderResult[StructuredAnalysis]: ...

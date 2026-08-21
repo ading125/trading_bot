@@ -161,6 +161,7 @@ class GrowthAnalysisService:
                 prompt_version=package.prompt_version,
                 output_schema_version=package.output_schema_version,
                 provider_id=pinned.provider_id,
+                model_id=pinned.manifest.model_id or pinned.provider_id,
                 adapter_version=pinned.manifest.adapter_version,
                 configuration_hash=pinned.configuration_hash,
             )
@@ -211,9 +212,16 @@ class GrowthAnalysisService:
                 prompt_version=package.prompt_version,
                 output_schema_version=package.output_schema_version,
                 provider_id=result.provenance.provider_id,
+                model_id=pinned.manifest.model_id or pinned.provider_id,
                 adapter_version=result.provenance.adapter_version,
                 provider_request_id=result.provenance.request_id,
                 configuration_hash=(result.provenance.configuration_hash or ""),
+                input_tokens=(
+                    result.usage.input_tokens if result.usage is not None else None
+                ),
+                output_tokens=(
+                    result.usage.output_tokens if result.usage is not None else None
+                ),
                 created_at=self._now(),
             )
             self.repository.store_assessment(assessment)
