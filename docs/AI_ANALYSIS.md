@@ -1,6 +1,6 @@
 # AI Analysis
 
-**Status:** Version-one contract and fixture-backed vertical slice implemented; live hosted adapter pending<br>
+**Status:** Version-one contract, fixture-backed vertical slice, and encrypted credential vault implemented; live hosted adapter pending<br>
 **Last updated:** 2026-08-20
 
 ## Role
@@ -108,5 +108,7 @@ supported only by CivicTracker/S&P-membership evidence.
 The runtime currently analyzes the bounded `CVX` seed with the deterministic
 recorded provider after candidate refresh. This proves the complete application
 contract without sending data externally or requiring a secret. Selecting and
-integrating a live hosted provider plus the encrypted unlock flow is the next
-increment and requires an explicit provider decision.
+integrating a live hosted provider is the next increment and requires an
+explicit provider decision. The provider-independent Argon2id/AES-GCM vault,
+terminal-only credential entry, explicit server unlock, and sanitized status API
+are implemented.

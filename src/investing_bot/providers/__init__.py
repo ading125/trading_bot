@@ -20,7 +20,16 @@ from investing_bot.providers.contracts import (
     ProviderManifest,
     ProviderTarget,
 )
-from investing_bot.providers.credentials import CredentialPresenceStore
+from investing_bot.providers.credentials import (
+    CredentialNotFoundError,
+    CredentialPresenceStore,
+    CredentialReferenceStore,
+    CredentialUnlockError,
+    CredentialVaultError,
+    CredentialVaultLockedError,
+    CredentialVaultStatus,
+    EncryptedCredentialStore,
+)
 from investing_bot.providers.manager import (
     PinnedProvider,
     ProviderConfigurationError,
@@ -32,6 +41,13 @@ __all__ = [
     "CapabilitySelection",
     "ConnectionTestResult",
     "CredentialPresenceStore",
+    "CredentialReferenceStore",
+    "CredentialNotFoundError",
+    "CredentialUnlockError",
+    "CredentialVaultError",
+    "CredentialVaultLockedError",
+    "CredentialVaultStatus",
+    "EncryptedCredentialStore",
     "PinnedProvider",
     "ProviderCallError",
     "ProviderConfiguration",

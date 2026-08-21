@@ -118,8 +118,10 @@ Completion criteria:
 Implementation status: the safe first vertical slice is complete using the
 recorded structured-analysis provider. Evidence packages, validation, cache and
 history persistence, prospective outcome slots, APIs, background scheduling,
-and dashboard presentation are implemented. The live hosted-provider adapter
-and encrypted credential unlock flow remain pending an explicit provider choice.
+and dashboard presentation are implemented. The authenticated encrypted vault,
+terminal-only credential entry, explicit unlock, provider-store injection, and
+sanitized status reporting are also implemented. The live hosted-provider
+adapter remains pending an explicit provider choice.
 
 Deliverables:
 

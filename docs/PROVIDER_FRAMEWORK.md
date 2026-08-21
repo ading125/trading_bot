@@ -44,10 +44,14 @@ Invalid requests and ordinary not-found results do not trigger fallback.
 ## Credentials
 
 Provider configuration contains only references shaped like
-`cred_provider_name`; it never contains a usable secret. The current framework
-implements the presence/locked boundary. Authenticated encryption, unlocking,
-and provider-specific secret resolution remain part of the later credential
-storage milestone.
+`cred_provider_name`; it never contains a usable secret. `EncryptedCredentialStore`
+derives a 256-bit wrapping key from a terminal-entered unlock secret with
+Argon2id and stores each provider secret in a separate AES-256-GCM envelope.
+The reference and credential kind are authenticated as associated data. Vault
+and envelope files use owner-only permissions, decrypted values exist only while
+the process is explicitly unlocked, and the dashboard/API expose only sanitized
+presence and lock status. A provider adapter may resolve only its configured
+opaque reference through the injected store.
 
 ## Health and discovery
 
@@ -72,4 +76,5 @@ Milestone 3. The Yahoo market/event/symbol adapter is implemented in Milestone 4
 and is used through the provider-neutral resolver in Milestone 5. The recorded
 structured-LLM provider now exercises the complete Milestone 6 evidence,
 validation, caching, persistence, API, and dashboard path. A live hosted-LLM
-adapter and encrypted credential unlock flow remain pending a provider choice.
+adapter remains pending a provider choice; the encrypted vault and unlock flow
+are implemented independently of that choice.

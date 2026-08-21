@@ -239,6 +239,29 @@ The following sections record settled decisions and their reasoning. They are no
   CVX `investigate` assessment, and HTTP 200 responses for the dashboard,
   assessment API, and cited-evidence API.
 
+## 2026-08-20 — Encrypted provider-credential vault
+
+- Added pinned `cryptography==48.0.0` and implemented the documented separation
+  between password-based key derivation and authenticated secret encryption.
+- Derived a 256-bit wrapping key with Argon2id using a random 16-byte salt and
+  stored each credential in its own AES-256-GCM envelope with a fresh 12-byte
+  nonce. Authenticated associated data binds each ciphertext to its opaque
+  reference and credential kind.
+- Stored only versioned salts, work factors, nonces, ciphertexts, and tags in
+  owner-only files below `data/credentials`; no plaintext secret, unlock value,
+  or usable key enters configuration, DuckDB, logs, URLs, or command arguments.
+- Added hidden interactive-terminal commands for vault initialization, setting
+  or replacing one secret, safe status, and explicit server unlock. The normal
+  server command remains backward compatible and starts with credentials locked.
+- Injected the credential store into provider management and added sanitized
+  dashboard/API status for initialization, lock state, and reference count.
+- Rejected wrong unlock values, modified envelopes, unsafe file permissions,
+  invalid references, and secret access while locked with sanitized errors.
+- Verified 114 offline tests plus live HTTP 200 checks for the dashboard, CSS,
+  and `/api/v1/credentials/status`; no real credential was requested or created.
+- Kept the hosted-LLM provider decision open. The vault is vendor-independent,
+  so this security work does not commit the user to a paid API or retention policy.
+
 ## Current assumptions to validate experimentally
 
 - The first baseline entry/exit algorithm should be simple, explainable, and parameterized; trend-pullback and breakout variants are leading candidates.

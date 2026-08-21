@@ -60,6 +60,7 @@ class ProviderTargetResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
     provider_id: str
     credential_required: bool
+    credential_present: bool
     credential_configured: bool
 
 
@@ -72,6 +73,13 @@ class CapabilitySelectionResponse(BaseModel):
 class ProviderHealthResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
     results: tuple[ConnectionTestResult, ...]
+
+
+class CredentialStatusResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    initialized: bool
+    unlocked: bool
+    configured_references: int = Field(ge=0)
 
 
 class SocialPostsResponse(BaseModel):
@@ -227,6 +235,14 @@ async def dashboard(request: Request) -> HTMLResponse:
         if hasattr(request.app.state, "analyses")
         else []
     )
+    credentials = (
+        provider_manager.credentials if provider_manager is not None else None
+    )
+    credential_status = (
+        credentials.status()
+        if credentials is not None and hasattr(credentials, "status")
+        else None
+    )
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
@@ -249,6 +265,7 @@ async def dashboard(request: Request) -> HTMLResponse:
                 if hasattr(request.app.state, "analyses")
                 else 0
             ),
+            "credential_status": credential_status,
             "social_posts": (
                 request.app.state.social_posts.list_posts(limit=20)
                 if hasattr(request.app.state, "social_posts")
@@ -280,10 +297,15 @@ async def providers(request: Request) -> ProviderDiscoveryResponse:
                 target.credential_ref is not None
                 and manager.credentials.is_configured(target.credential_ref)
             )
+            present = bool(
+                target.credential_ref is not None
+                and manager.credentials.has_reference(target.credential_ref)
+            )
             targets.append(
                 ProviderTargetResponse(
                     provider_id=target.provider_id,
                     credential_required=manifest.authentication_required,
+                    credential_present=present,
                     credential_configured=configured,
                 )
             )
@@ -301,6 +323,23 @@ async def providers(request: Request) -> ProviderDiscoveryResponse:
 async def provider_health(request: Request) -> ProviderHealthResponse:
     manager = request.app.state.provider_manager
     return ProviderHealthResponse(results=manager.health_snapshot())
+
+
+@router.get("/api/v1/credentials/status", response_model=CredentialStatusResponse)
+async def credential_status(request: Request) -> CredentialStatusResponse:
+    credentials = request.app.state.provider_manager.credentials
+    if hasattr(credentials, "status"):
+        current = credentials.status()
+        return CredentialStatusResponse(
+            initialized=current.initialized,
+            unlocked=current.unlocked,
+            configured_references=len(current.references),
+        )
+    return CredentialStatusResponse(
+        initialized=False,
+        unlocked=credentials.unlocked,
+        configured_references=0,
+    )
 
 
 @router.get(

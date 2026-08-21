@@ -35,6 +35,7 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
             ready = await client.get("/api/v1/ready")
             providers = await client.get("/api/v1/providers")
             provider_health = await client.get("/api/v1/providers/health")
+            credential_status = await client.get("/api/v1/credentials/status")
             source_health = await client.get("/api/v1/sources/health")
             posts = await client.get("/api/v1/sources/civictracker/posts")
             market_status = await client.get("/api/v1/market/status")
@@ -65,6 +66,11 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
     assert all(
         item["state"] == "healthy" for item in provider_health.json()["results"]
     )
+    assert credential_status.json() == {
+        "initialized": False,
+        "unlocked": False,
+        "configured_references": 0,
+    }
     assert source_health.status_code == 200
     assert len(source_health.json()["results"]) == 18
     assert posts.status_code == 200

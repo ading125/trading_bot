@@ -92,6 +92,10 @@ class AppSettings(BaseSettings):
         return self.data_dir / self.provider_config_name
 
     @property
+    def credential_vault_path(self) -> Path:
+        return self.data_dir / "credentials"
+
+    @property
     def parsed_analysis_seed_symbols(self) -> tuple[str, ...]:
         return tuple(
             dict.fromkeys(

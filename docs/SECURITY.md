@@ -1,7 +1,7 @@
 # Security
 
-**Status:** Required controls<br>
-**Last updated:** 2026-08-06
+**Status:** Required controls; encrypted provider-credential vault implemented<br>
+**Last updated:** 2026-08-20
 
 ## Threat model
 
@@ -32,6 +32,18 @@ Protect against leaked LLM credentials, exposed local ports, malicious source te
 - Provider health may expose provider ID, capability, configured/healthy state, freshness, and sanitized error class, but never credentials, authorization details, or raw sensitive error bodies.
 
 Password hashing, secret encryption, and content hashing are different controls: Argon2id verifies/derives from an unlock secret; authenticated encryption protects retrievable provider credentials; SHA-256 identifies source/data content and detects changes.
+
+### Implemented credential boundary
+
+The local vault derives a 256-bit process-memory key with Argon2id and encrypts
+each provider secret independently with AES-256-GCM, a fresh 12-byte nonce, and
+authenticated reference/type metadata. The vault verifier and secret envelopes
+are atomic owner-only JSON files below `/data/credentials`; plaintext values,
+unlock material, and usable keys are not stored in DuckDB or configuration.
+Initialization, secret entry, and server unlock require hidden input from an
+interactive terminal. Locking overwrites the retained mutable key buffer. The
+read-only API reports only initialized, locked/unlocked, and reference-count
+state.
 
 ## Untrusted content and AI
 

@@ -109,9 +109,10 @@ The current environment has a Ryzen 5 3600, 12 logical CPUs, approximately 8 GB 
   caching, immutable assessment history, prospective 5/10/20-session outcome
   slots, read-only analysis APIs, background CVX fixture analysis, and dashboard
   thesis/score/risk presentation. No external AI provider is called yet.
-- A live hosted-LLM adapter and Argon2id/authenticated-encryption credential
-  unlock flow require an explicit provider choice before the rest of Milestone 6
-  can be called complete.
+- The provider-independent credential vault, terminal-only entry commands,
+  explicit server unlock, and sanitized status API are implemented with
+  Argon2id-derived AES-256-GCM encryption. A live hosted-LLM adapter still
+  requires an explicit provider choice before Milestone 6 can be called complete.
 - Live market polling is intentionally opt-in and initially limited to a
   configurable seed watchlist. No investment setup is published yet.
 - Docker acceptance checks remain pending in an environment with Docker available.

@@ -71,8 +71,22 @@ When Docker is available, build and run the hardened local container:
 docker compose up --build
 ```
 
-The dashboard will be available at `http://127.0.0.1:8000`. Do not place API
-keys in `.env`; live hosted-AI credential entry is not enabled yet.
+The dashboard will be available at `http://127.0.0.1:8000`. Never place API
+keys in `.env`; use the encrypted credential-vault commands described below.
+
+Credential secrets are entered only through hidden interactive-terminal prompts:
+
+```bash
+python -m investing_bot credentials init
+python -m investing_bot credentials set cred_provider_name
+python -m investing_bot credentials status
+python -m investing_bot serve --unlock-credentials
+```
+
+The existing `python -m investing_bot` start command remains unchanged and
+starts with the vault locked. Vault files live under `data/credentials` with
+owner-only permissions. References, initialization state, and locked/unlocked
+state are safe to inspect; decrypted values are never returned by the API.
 
 Production/development mode selects live CivicTracker JSON for social posts and
 falls back to its HTML adapter if a compatible server-rendered page is available.
@@ -106,14 +120,17 @@ provider-version-aware cache keys, assessment history, and prospective 5/10/20
 session outcome slots. The dashboard shows the latest thesis, scores, catalysts,
 bear case, risks, uncertainty, and evidence link. Read-only records are also
 available at `/api/v1/analyses`, `/api/v1/analyses/{symbol}`, and
-`/api/v1/analyses/{symbol}/evidence`. A live hosted provider and encrypted
-credential unlock flow remain the next Milestone 6 increment.
+`/api/v1/analyses/{symbol}/evidence`. The encrypted credential vault and safe
+unlock boundary are implemented; selecting and integrating the first live
+hosted provider remains the next Milestone 6 increment.
 
-Verification: 111 offline tests cover provider contracts, CivicTracker
+Verification: 114 offline tests cover provider contracts, CivicTracker
 collection, Yahoo normalization, incremental market coverage,
 validation/quarantine, revision history, actual Parquet publication, deterministic
 company resolution, ambiguity/manual-review behavior, source provenance, and
 candidate expiry, source-bounded analysis validation, caching, history, and
-political-only qualification rejection. Live SPY and Chevron Yahoo checks and
+political-only qualification rejection, credential encryption, wrong-secret and
+tamper rejection, locked-state isolation, and unsafe-permission rejection. Live
+SPY and Chevron Yahoo checks and
 the local fixture-backed CVX analysis were smoke-tested successfully on
 2026-08-20.

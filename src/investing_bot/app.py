@@ -23,7 +23,8 @@ from investing_bot.db import (
 )
 from investing_bot.logging import configure_logging
 from investing_bot.providers import (
-    CredentialPresenceStore,
+    CredentialReferenceStore,
+    EncryptedCredentialStore,
     ProviderManager,
     build_default_registry,
     load_provider_configuration,
@@ -48,10 +49,17 @@ logger = logging.getLogger(__name__)
 _WEB_DIR = Path(__file__).resolve().parent / "web"
 
 
-def create_app(settings: AppSettings | None = None) -> FastAPI:
+def create_app(
+    settings: AppSettings | None = None,
+    *,
+    credentials: CredentialReferenceStore | None = None,
+) -> FastAPI:
     """Create an isolated application instance for production or tests."""
 
     resolved_settings = settings or get_settings()
+    credential_store = credentials or EncryptedCredentialStore(
+        resolved_settings.credential_vault_path
+    )
     configure_logging(
         level=resolved_settings.log_level,
         log_format=resolved_settings.log_format,
@@ -98,7 +106,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
                     yahoo_retries=resolved_settings.yahoo_retries,
                 ),
                 configuration=provider_configuration,
-                credentials=CredentialPresenceStore(),
+                credentials=credential_store,
             )
             provider_health = await provider_manager.refresh_health()
             next_poll_at = None

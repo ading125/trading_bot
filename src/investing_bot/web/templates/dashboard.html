@@ -72,6 +72,17 @@
           <p class="value">{{ analysis_count }}</p>
           <p class="detail">Source-bounded research records</p>
         </article>
+        <article>
+          <p class="label">Credential vault</p>
+          <p class="value">
+            {% if credential_status and credential_status.unlocked %}Unlocked
+            {% elif credential_status and credential_status.initialized %}Locked
+            {% else %}Not initialized{% endif %}
+          </p>
+          <p class="detail">
+            {{ credential_status.references | length if credential_status else 0 }} encrypted references
+          </p>
+        </article>
       </section>
       <section class="provider-section" aria-labelledby="candidate-heading">
         <p class="eyebrow">Candidate registry</p>
