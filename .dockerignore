@@ -6,6 +6,7 @@ __pycache__
 *.pyc
 *.duckdb
 *.duckdb.wal
+*.ibbackup
 build
 dist
 data

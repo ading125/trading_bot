@@ -144,6 +144,16 @@ class JobRunRepository:
         )
         return [_row_to_job(row) for row in rows]
 
+    def latest_for_type(self, job_type: str) -> JobRun | None:
+        row = self._database.fetchone(
+            f"""
+            SELECT {_JOB_COLUMNS} FROM job_runs
+            WHERE job_type=? ORDER BY requested_at DESC LIMIT 1
+            """,
+            [job_type],
+        )
+        return None if row is None else _row_to_job(row)
+
     def acquire_lease(
         self,
         *,

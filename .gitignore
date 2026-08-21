@@ -25,6 +25,7 @@ htmlcov/
 /data/
 *.duckdb
 *.duckdb.wal
+*.ibbackup
 
 # Editor and operating-system files
 .idea/

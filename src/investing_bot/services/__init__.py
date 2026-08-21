@@ -57,6 +57,19 @@ from investing_bot.services.backtest import (
     BacktestResearchService,
     ExperimentExecution,
 )
+from investing_bot.services.operations import (
+    ManualActionBusyError,
+    ManualActionRateLimitError,
+    OperationalScheduler,
+    OperationsCoordinator,
+    OperationsSchedulePlanner,
+    OutcomeTrackingService,
+    USMarketCalendar,
+)
+from investing_bot.services.diagnostics import (
+    SanitizedDiagnostics,
+    build_sanitized_diagnostics,
+)
 
 __all__ = [
     "CivicTrackerCollector",
@@ -99,4 +112,13 @@ __all__ = [
     "parse_sp500_html",
     "load_packaged_aliases",
     "normalize_entity_name",
+    "ManualActionBusyError",
+    "ManualActionRateLimitError",
+    "OperationalScheduler",
+    "OperationsCoordinator",
+    "OperationsSchedulePlanner",
+    "OutcomeTrackingService",
+    "USMarketCalendar",
+    "SanitizedDiagnostics",
+    "build_sanitized_diagnostics",
 ]

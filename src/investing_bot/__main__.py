@@ -4,11 +4,17 @@ from __future__ import annotations
 
 import argparse
 from getpass import getpass
+from pathlib import Path
 import sys
 
 import uvicorn
 
 from investing_bot.app import create_app
+from investing_bot.backup import (
+    BackupError,
+    create_encrypted_backup,
+    restore_encrypted_backup,
+)
 from investing_bot.config import AppSettings, get_settings
 from investing_bot.providers import EncryptedCredentialStore, CredentialVaultError
 
@@ -21,8 +27,11 @@ def main() -> None:
         if arguments.command == "credentials":
             _credentials_command(settings, arguments)
             return
+        if arguments.command == "backup":
+            _backup_command(settings, arguments)
+            return
         _serve(settings, unlock_credentials=arguments.unlock_credentials)
-    except (CredentialVaultError, ValueError) as exc:
+    except (BackupError, CredentialVaultError, ValueError) as exc:
         parser.exit(2, f"error: {exc}\n")
 
 
@@ -93,6 +102,28 @@ def _require_terminal() -> None:
         )
 
 
+def _backup_command(settings: AppSettings, arguments: argparse.Namespace) -> None:
+    _require_terminal()
+    if arguments.backup_command == "create":
+        first = getpass("Create backup passphrase: ")
+        second = getpass("Confirm backup passphrase: ")
+        if first != second:
+            raise ValueError("backup passphrases did not match")
+        path = create_encrypted_backup(settings.data_dir, arguments.path, first)
+        print(f"Encrypted backup created: {path}")
+        return
+    if arguments.backup_command == "restore":
+        passphrase = getpass("Backup passphrase: ")
+        path = restore_encrypted_backup(
+            arguments.path,
+            arguments.destination,
+            passphrase,
+        )
+        print(f"Backup restored to: {path}")
+        return
+    raise ValueError("backup command is required")
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="investing-bot")
     subcommands = parser.add_subparsers(dest="command")
@@ -114,6 +145,23 @@ def _parser() -> argparse.ArgumentParser:
     set_command.add_argument("reference", help="opaque reference such as cred_openai")
     set_command.add_argument(
         "--credential-kind", default="api_token", help="non-secret credential type"
+    )
+    backup = subcommands.add_parser(
+        "backup", help="create or restore an encrypted local data-volume backup"
+    )
+    backup_commands = backup.add_subparsers(dest="backup_command")
+    create_backup = backup_commands.add_parser(
+        "create", help="encrypt the entire configured data directory"
+    )
+    create_backup.add_argument("path", type=Path, help="new backup file path")
+    restore_backup = backup_commands.add_parser(
+        "restore", help="restore into a new data directory"
+    )
+    restore_backup.add_argument("path", type=Path, help="encrypted backup file")
+    restore_backup.add_argument(
+        "destination",
+        type=Path,
+        help="new directory to create; it must not already exist",
     )
     parser.set_defaults(unlock_credentials=False)
     return parser

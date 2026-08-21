@@ -1,6 +1,6 @@
 # Architecture
 
-**Status:** Milestones 1–8 implemented; operations component remains proposed<br>
+**Status:** Milestones 1–9 implemented<br>
 **Last updated:** 2026-08-21
 
 ## Components
@@ -15,7 +15,8 @@ The application will be a modular Python service packaged in Docker:
 - **Strategy engine:** trusted Python strategy plugins consuming canonical point-in-time bars and candidate metadata.
 - **Backtest engine:** event-driven trade/portfolio simulation using the same strategy interface as live research.
 - **Persistence:** DuckDB for relational records and Parquet for larger price/history datasets.
-- **Dashboard:** Jinja/HTMX views with Plotly charts; no separate JavaScript SPA is required initially.
+- **Dashboard:** server-rendered Jinja views with dependency-free CSS charts;
+  no separate JavaScript SPA is required.
 
 ## Runtime topology
 
@@ -47,15 +48,16 @@ Source adapters return canonical records and never write strategy outputs direct
 The implemented CivicTracker path follows that boundary: transport adapters
 return `SocialPostRecord`; `CivicTrackerCollector` owns paging and job leases;
 `SocialPostRepository` owns deduplication, revisions, checkpoints, health, and
-collection summaries; read-only FastAPI routes expose recent posts and health.
+collection summaries; FastAPI routes expose recent posts, health, and guarded
+manual collection.
 
 The implemented market path follows the same boundary: `YahooFinanceProvider`
 normalizes synchronous SDK payloads on a bounded worker pool;
 `MarketDataCollector` owns provider pinning, leases, incremental ranges, and the
 validation gate; `MarketDataRepository` owns canonical DuckDB rows, revisions,
 quarantine, coverage cursors, and atomic Parquet publication. Read-only routes
-expose market status, bars, and dataset metadata. The background market poller
-is disabled unless explicitly enabled.
+expose market status, bars, and dataset metadata. Market work is disabled unless
+explicitly enabled and is dispatched through the session-aware scheduler.
 
 The implemented candidate path keeps extraction separate from verification.
 `CompanyResolver` consumes versioned aliases and the provider-neutral symbol
@@ -102,6 +104,12 @@ Provider choice is pinned for the lifetime of each job, analysis, or backtest. O
 - Do not retry validation failures automatically until new data arrives.
 - Preserve the last successful published result when a new run fails.
 
+The implemented `OperationalScheduler` calculates CivicTracker, broad/active
+news, earnings, completed daily/intraday bar, after-close report, and prospective
+outcome slots in `America/New_York`. `(task, scheduled_for)` is persisted as an
+idempotency key. Related market tasks are coalesced within five minutes. Manual
+dashboard actions use separate persistent job records, leases, and cooldowns.
+
 ## Local API responsibilities
 
 Versioned endpoints should cover:
@@ -114,7 +122,9 @@ Versioned endpoints should cover:
 - Settings presence/status without ever returning stored secret values.
 - Provider registry, capability/health status, connection tests, selection, and explicit fallback activity.
 
-All state-changing endpoints require an authenticated local session, same-origin requests, and CSRF validation.
+Current state-changing endpoints require same-origin requests and remain
+loopback-only. Multi-user authentication is not implemented because version one
+is a single-user local service; it is required before any non-loopback exposure.
 
 ## Docker requirements
 

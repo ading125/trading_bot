@@ -494,6 +494,68 @@ class MarketDataRepository:
         )
         return [dict(zip(fields, row, strict=True)) for row in rows]
 
+    def outcome_closes(
+        self,
+        *,
+        symbol: str,
+        after: datetime,
+        as_of: datetime,
+        provider_id: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, object]]:
+        """Return point-in-time eligible daily closes for prospective scoring."""
+
+        selected_provider = provider_id
+        if selected_provider is None:
+            row = self._database.fetchone(
+                """
+                SELECT provider_id FROM market_bars
+                WHERE symbol=? AND interval=? AND adjustment=?
+                  AND bar_end>? AND bar_end<=? AND known_available_at<=?
+                GROUP BY provider_id
+                ORDER BY MAX(bar_end) DESC, COUNT(*) DESC, provider_id
+                LIMIT 1
+                """,
+                [
+                    symbol.upper(),
+                    BarInterval.DAY_1.value,
+                    PriceAdjustment.ADJUSTED.value,
+                    after,
+                    as_of,
+                    as_of,
+                ],
+            )
+            if row is None:
+                return []
+            selected_provider = str(row[0])
+        rows = self._database.fetchall(
+            """
+            SELECT provider_id, session_date, close, bar_end, known_available_at
+            FROM market_bars
+            WHERE provider_id=? AND symbol=? AND interval=? AND adjustment=?
+              AND bar_end>? AND bar_end<=? AND known_available_at<=?
+            ORDER BY session_date, bar_end LIMIT ?
+            """,
+            [
+                selected_provider,
+                symbol.upper(),
+                BarInterval.DAY_1.value,
+                PriceAdjustment.ADJUSTED.value,
+                after,
+                as_of,
+                as_of,
+                limit,
+            ],
+        )
+        fields = (
+            "provider_id",
+            "session_date",
+            "close",
+            "bar_end",
+            "known_available_at",
+        )
+        return [dict(zip(fields, row, strict=True)) for row in rows]
+
     def resolve_strategy_provider(
         self,
         *,

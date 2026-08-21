@@ -3,18 +3,24 @@
 from __future__ import annotations
 
 from importlib.metadata import version
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 import re
+from types import SimpleNamespace
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from investing_bot.models import (
     BacktestRequest,
     BarInterval,
+    ManualAction,
+    ManualActionResult,
+    OperationalScheduleRun,
+    ScheduledOperation,
     PriceAdjustment,
     ProviderCapability,
     StrategyManifest,
@@ -45,6 +51,10 @@ from investing_bot.services import (
     BacktestExecution,
     BacktestResearchError,
     ExperimentExecution,
+    ManualActionBusyError,
+    ManualActionRateLimitError,
+    SanitizedDiagnostics,
+    build_sanitized_diagnostics,
 )
 
 
@@ -219,6 +229,59 @@ class BacktestExperimentsResponse(BaseModel):
     count: int = Field(ge=0)
 
 
+class OperationsScheduleResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: tuple[ScheduledOperation, ...]
+
+
+class OperationsRunsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: tuple[OperationalScheduleRun, ...]
+
+
+class ProviderOperationsView(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    capability: str
+    provider_id: str
+    display_name: str
+    supported_capabilities: str
+    selection_role: str
+    active_selection: bool
+    fallback_active: bool
+    state: str
+    last_success_at: AwareDatetime | None
+    freshness_seconds: int | None
+    latency_ms: float | None
+    quota: str
+    contract_status: str
+    schema_version: str
+    adapter_version: str
+    rate_limit: str
+
+
+class ProviderOperationsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: tuple[ProviderOperationsView, ...]
+
+
+class AlertView(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    evaluation: StoredStrategyEvaluation
+    assessment: AIAssessment | None
+
+
+class AlertsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: tuple[AlertView, ...]
+    count: int = Field(ge=0)
+
+
 @router.get("/api/v1/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     """Process-liveness endpoint that does not depend on external services."""
@@ -309,6 +372,25 @@ async def dashboard(request: Request) -> HTMLResponse:
         if credentials is not None and hasattr(credentials, "status")
         else None
     )
+    alerts = [
+        {
+            "evaluation": evaluation,
+            "assessment": request.app.state.analyses.get(evaluation.assessment_id),
+            "chart": _price_chart(request, evaluation.signal.symbol),
+        }
+        for evaluation in strategy_evaluations
+    ]
+    schedule = (
+        request.app.state.schedule_planner.next_runs()
+        if hasattr(request.app.state, "schedule_planner")
+        else ()
+    )
+    operation_runs = (
+        request.app.state.operation_runs.list_recent(limit=12)
+        if hasattr(request.app.state, "operation_runs")
+        else ()
+    )
+    provider_operations = _provider_operations_view(request)
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
@@ -334,6 +416,7 @@ async def dashboard(request: Request) -> HTMLResponse:
             ),
             "strategy_manifests": strategy_manifests,
             "strategy_evaluations": strategy_evaluations,
+            "alerts": alerts,
             "strategy_evaluation_count": (
                 request.app.state.strategy_evaluations.count()
                 if hasattr(request.app.state, "strategy_evaluations")
@@ -367,8 +450,113 @@ async def dashboard(request: Request) -> HTMLResponse:
                 if hasattr(request.app.state, "social_posts")
                 else []
             ),
+            "schedule": schedule,
+            "operation_runs": operation_runs,
+            "provider_operations": provider_operations,
+            "operation_notice": request.query_params.get("operation"),
+            "operation_state": request.query_params.get("state"),
         },
     )
+
+
+def _price_chart(request: Request, symbol: str) -> tuple[dict[str, object], ...]:
+    rows = request.app.state.market_data.list_bars(
+        symbol=symbol,
+        interval=BarInterval.DAY_1,
+        adjustment=PriceAdjustment.ADJUSTED,
+        limit=48,
+    )
+    rows.reverse()
+    closes = [float(row["close"]) for row in rows]
+    if not closes:
+        return ()
+    low, high = min(closes), max(closes)
+    span = high - low
+    return tuple(
+        {
+            "date": row["session_date"],
+            "close": float(row["close"]),
+            "level": (
+                3
+                if span == 0
+                else min(10, 1 + int(9 * (float(row["close"]) - low) / span))
+            ),
+        }
+        for row in rows
+    )
+
+
+def _provider_operations_view(request: Request) -> tuple[ProviderOperationsView, ...]:
+    manager = getattr(request.app.state, "provider_manager", None)
+    if manager is None:
+        return ()
+    now = datetime.now(UTC)
+    health = {
+        (item.provider_id, item.capability): item
+        for item in manager.health_snapshot()
+    }
+    views: list[ProviderOperationsView] = []
+    for capability, selection in manager.configuration.selections.items():
+        available = next(
+            (
+                target.provider_id
+                for target in selection.ordered_targets
+                if (target.provider_id, capability) in health
+                and health[(target.provider_id, capability)].available
+            ),
+            None,
+        )
+        for index, target in enumerate(selection.ordered_targets):
+            manifest = manager.registry.manifest(target.provider_id)
+            result = health.get((target.provider_id, capability))
+            last_success = (
+                result.checked_at if result is not None and result.available else None
+            )
+            freshness = (
+                max(0, int((now - last_success).total_seconds()))
+                if last_success is not None
+                else None
+            )
+            quota = "not reported"
+            if result is not None and result.quota is not None:
+                remaining = (
+                    "?" if result.quota.remaining is None else str(result.quota.remaining)
+                )
+                limit = "?" if result.quota.limit is None else str(result.quota.limit)
+                quota = f"{remaining} / {limit} remaining"
+            rate_limit = "not declared"
+            if manifest.rate_limit is not None:
+                rate_limit = (
+                    f"{manifest.rate_limit.requests} requests / "
+                    f"{manifest.rate_limit.window_seconds}s"
+                )
+            views.append(
+                ProviderOperationsView(
+                    capability=capability.value,
+                    provider_id=target.provider_id,
+                    display_name=manifest.display_name,
+                    supported_capabilities=", ".join(
+                        sorted(item.value for item in manifest.capabilities)
+                    ),
+                    selection_role="primary" if index == 0 else f"fallback {index}",
+                    active_selection=target.provider_id == available,
+                    fallback_active=index > 0 and target.provider_id == available,
+                    state="unknown" if result is None else result.state.value,
+                    last_success_at=last_success,
+                    freshness_seconds=freshness,
+                    latency_ms=None if result is None else result.latency_ms,
+                    quota=quota,
+                    contract_status=(
+                        "compatible"
+                        if capability in manifest.schema_versions
+                        else "incompatible"
+                    ),
+                    schema_version=manifest.schema_versions[capability],
+                    adapter_version=manifest.adapter_version,
+                    rate_limit=rate_limit,
+                )
+            )
+    return tuple(views)
 
 
 def _analysis_mode_view(
@@ -462,6 +650,93 @@ async def providers(request: Request) -> ProviderDiscoveryResponse:
 async def provider_health(request: Request) -> ProviderHealthResponse:
     manager = request.app.state.provider_manager
     return ProviderHealthResponse(results=manager.health_snapshot())
+
+
+@router.get(
+    "/api/v1/providers/operations", response_model=ProviderOperationsResponse
+)
+async def provider_operations(request: Request) -> ProviderOperationsResponse:
+    return ProviderOperationsResponse(items=_provider_operations_view(request))
+
+
+@router.get(
+    "/api/v1/operations/schedule", response_model=OperationsScheduleResponse
+)
+async def operations_schedule(request: Request) -> OperationsScheduleResponse:
+    return OperationsScheduleResponse(
+        items=request.app.state.schedule_planner.next_runs()
+    )
+
+
+@router.get(
+    "/api/v1/operations/runs", response_model=OperationsRunsResponse
+)
+async def operations_runs(
+    request: Request, limit: int = Query(default=50, ge=1, le=500)
+) -> OperationsRunsResponse:
+    return OperationsRunsResponse(
+        items=tuple(request.app.state.operation_runs.list_recent(limit=limit))
+    )
+
+
+@router.post(
+    "/api/v1/operations/refresh/{action}", response_model=ManualActionResult
+)
+async def manual_operation_api(
+    request: Request, action: str
+) -> ManualActionResult:
+    _require_same_origin(request)
+    selected = _manual_action(action)
+    try:
+        return await request.app.state.operations.run_manual(selected)
+    except ManualActionRateLimitError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(exc),
+            headers={"Retry-After": str(exc.retry_after_seconds)},
+        ) from exc
+    except ManualActionBusyError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.post("/actions/refresh/{action}", response_class=RedirectResponse)
+async def manual_operation_form(request: Request, action: str) -> RedirectResponse:
+    _require_same_origin(request)
+    selected = _manual_action(action)
+    state_value = "completed"
+    try:
+        await request.app.state.operations.run_manual(selected)
+    except ManualActionRateLimitError:
+        state_value = "rate_limited"
+    except ManualActionBusyError:
+        state_value = "busy"
+    except Exception:
+        state_value = "failed"
+    return RedirectResponse(
+        url=f"/?operation={selected.value}&state={state_value}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.get("/api/v1/diagnostics", response_model=SanitizedDiagnostics)
+async def diagnostics(request: Request) -> SanitizedDiagnostics:
+    credentials = request.app.state.provider_manager.credentials
+    vault_status = (
+        credentials.status()
+        if hasattr(credentials, "status")
+        else SimpleNamespace(
+            initialized=False,
+            unlocked=credentials.unlocked,
+            references=(),
+        )
+    )
+    return build_sanitized_diagnostics(
+        settings=request.app.state.settings,
+        database=request.app.state.database,
+        jobs=request.app.state.job_runs,
+        provider_manager=request.app.state.provider_manager,
+        vault_status=vault_status,
+    )
 
 
 @router.get("/api/v1/credentials/status", response_model=CredentialStatusResponse)
@@ -600,6 +875,20 @@ async def strategy_setups(
 ) -> StrategyEvaluationsResponse:
     items = tuple(request.app.state.strategy_evaluations.list_latest(limit=limit))
     return StrategyEvaluationsResponse(items=items, count=len(items))
+
+
+@router.get("/api/v1/alerts", response_model=AlertsResponse)
+async def alerts(
+    request: Request, limit: int = Query(default=100, ge=1, le=500)
+) -> AlertsResponse:
+    items = tuple(
+        AlertView(
+            evaluation=evaluation,
+            assessment=request.app.state.analyses.get(evaluation.assessment_id),
+        )
+        for evaluation in request.app.state.strategy_evaluations.list_latest(limit=limit)
+    )
+    return AlertsResponse(items=items, count=len(items))
 
 
 @router.get(
@@ -745,6 +1034,25 @@ def _ticker(symbol: str) -> str:
     if not re.fullmatch(r"[A-Z][A-Z0-9.-]{0,11}", normalized):
         raise HTTPException(status_code=422, detail="invalid ticker symbol")
     return normalized
+
+
+def _manual_action(value: str) -> ManualAction:
+    try:
+        return ManualAction(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="unknown manual operation") from exc
+
+
+def _require_same_origin(request: Request) -> None:
+    fetch_site = request.headers.get("sec-fetch-site", "")
+    if fetch_site.lower() == "cross-site":
+        raise HTTPException(status_code=403, detail="cross-site operation blocked")
+    origin = request.headers.get("origin")
+    if origin is None:
+        return
+    parsed = urlsplit(origin)
+    if parsed.scheme not in {"http", "https"} or parsed.netloc != request.url.netloc:
+        raise HTTPException(status_code=403, detail="cross-site operation blocked")
 
 
 def _sha256(value: str) -> str:

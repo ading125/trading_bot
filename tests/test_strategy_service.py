@@ -128,7 +128,7 @@ def test_strategy_service_persists_caches_and_preserves_stale_state(
 ) -> None:
     database = Database(tmp_path / "investing_bot.duckdb")
     database.connect()
-    assert database.migrate() == 8
+    assert database.migrate() == 9
     candidates = CandidateRepository(database)
     analyses = AnalysisRepository(database)
     market = MarketDataRepository(database, dataset_root=tmp_path / "market")

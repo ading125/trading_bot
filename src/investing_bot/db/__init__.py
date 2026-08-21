@@ -30,6 +30,7 @@ from investing_bot.db.analysis import (
     AnalysisEvidencePackage,
     AnalysisOutcome,
     AnalysisRepository,
+    PendingAnalysisOutcome,
 )
 from investing_bot.db.strategy import StoredStrategyEvaluation, StrategyRepository
 from investing_bot.db.backtest import (
@@ -38,6 +39,7 @@ from investing_bot.db.backtest import (
     StoredBacktestExperiment,
     StoredBacktestRun,
 )
+from investing_bot.db.operations import OperationsRepository
 
 __all__ = [
     "Database",
@@ -66,10 +68,12 @@ __all__ = [
     "AnalysisEvidencePackage",
     "AnalysisOutcome",
     "AnalysisRepository",
+    "PendingAnalysisOutcome",
     "StoredStrategyEvaluation",
     "StoredBacktestExperiment",
     "StoredBacktestRun",
     "StrategyRepository",
+    "OperationsRepository",
     "PostWriteKind",
     "SocialPostRepository",
     "StoredSocialPost",

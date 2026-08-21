@@ -1,6 +1,6 @@
 # Investing Bot
 
-**Status:** Milestones 1–8 implemented; Milestone 9 operations is next<br>
+**Status:** Milestones 1–9 implemented<br>
 **Last updated:** 2026-08-21
 
 Investing Bot is a private, locally hosted stock-research tool. It discovers public companies from current news, earnings activity, the S&P 500, and selected political-policy sources; uses an AI model to evaluate growth potential; and passes qualified companies to a deterministic, backtested strategy that calculates potential entries, exits, and invalidation levels.
@@ -38,7 +38,7 @@ RAG, a vector database, local LLM training, live order execution, short selling,
 
 - Python 3.12
 - FastAPI local service
-- Jinja/HTMX dashboard with Plotly charts
+- Server-rendered Jinja dashboard with dependency-free CSS price charts
 - DuckDB for application records and Parquet for market history
 - `yfinance` for initial Yahoo Finance data access
 - CivicTracker's public JSON feed for selected executive social posts
@@ -96,15 +96,16 @@ Tests remain fully offline on deterministic recorded providers. Copy
 [providers.example.json](providers.example.json) to `data/providers.json` only
 when you want to override the default selections.
 
-The live CivicTracker collector begins in the background, polls no more often than every 15
-minutes by default, and fetches at most five pages per run. Its member UUID,
-interval, page size, page cap, timeout, retry count, and enabled state are
-non-secret `INVESTING_BOT_CIVICTRACKER_*` settings.
+The operational scheduler runs CivicTracker on a 15-minute cadence and fetches
+at most five pages per run. Its member UUID, page size, page cap, timeout, retry
+count, and enabled state are non-secret `INVESTING_BOT_CIVICTRACKER_*` settings.
 
 Market collection uses live Yahoo Finance providers outside test mode but is
-opt-in by default. To enable bounded hourly collection for the configured seed
-watchlist, set `INVESTING_BOT_MARKET_COLLECTION_ENABLED=true` and restart the
-service. Canonical bars are written below `data/market`, raw Yahoo payloads below
+opt-in by default. To enable market-calendar-aware collection for the configured
+seed watchlist, set `INVESTING_BOT_MARKET_COLLECTION_ENABLED=true` and restart
+the service. Related news, earnings, and bar tasks due within five minutes are
+coalesced into one bounded provider refresh. Canonical bars are written below
+`data/market`, raw Yahoo payloads below
 `data/cache/yahoo`, and the dashboard/API expose dataset and quarantine counts.
 The watchlist and polling/history bounds use the non-secret
 `INVESTING_BOT_MARKET_*` settings in [.env.example](.env.example).
@@ -152,7 +153,35 @@ AI decisions are explicitly excluded. Results are available through
 `/api/v1/backtests` and `/api/v1/backtests/experiments` and appear in a separate
 dashboard research section.
 
-Verification: 137 offline tests cover provider contracts, CivicTracker
+Milestone 9 turns the dashboard into the local operations surface. It shows the
+candidate queue and evidence links, AI research, setup/alert lifecycle, recent
+price charts, complete entry/invalidation/exit controls, source freshness,
+provider selection and fallback activity, schema versions, sanitized quota and
+latency, the next U.S. market-session tasks, and persisted schedule history.
+Manual source, market, candidate, analysis, strategy, and outcome refreshes are
+same-origin POST actions with one-run locks and cooldown protection. The same
+state is available through `/api/v1/operations/*`, `/api/v1/providers/operations`,
+`/api/v1/alerts`, and the intentionally sanitized `/api/v1/diagnostics` route.
+Prospective AI outcomes are reconciled after the close against provider-pinned,
+point-in-time eligible adjusted daily bars.
+
+Stop the server before creating a backup so DuckDB and its related files form a
+consistent snapshot. The backup passphrase is read with hidden terminal input;
+the resulting archive uses Argon2id and AES-256-GCM and contains the entire data
+directory, including the already encrypted credential vault:
+
+```bash
+INVESTING_BOT_DATA_DIR="$PWD/data" .venv/bin/python -m investing_bot backup create "$PWD/investing-bot.ibbackup"
+INVESTING_BOT_DATA_DIR="$PWD/data" .venv/bin/python -m investing_bot backup restore "$PWD/investing-bot.ibbackup" "$PWD/restored-data"
+INVESTING_BOT_DATA_DIR="$PWD/restored-data" .venv/bin/python -m investing_bot
+```
+
+The restore destination must be a new directory, which makes validation against
+a clean local or named-volume mount explicit. The optional Windows/WSL launcher
+is `start-investing-bot.ps1`; pass `-UnlockCredentials` when live Groq analysis
+is needed.
+
+Verification: 141 offline tests cover provider contracts, CivicTracker
 collection, Yahoo normalization, incremental market coverage,
 validation/quarantine, revision history, actual Parquet publication, deterministic
 company resolution, ambiguity/manual-review behavior, source provenance, and
@@ -163,7 +192,10 @@ Groq request/response handling, token lineage, sanitized provider failures,
 strategy determinism, no-look-ahead/provider-isolation invariants, stale-state
 handling, evaluation caching, nested setup persistence, next-bar execution,
 capital/cost reconciliation, stop/target/trailing/time exits, SPY comparison,
-walk-forward isolation, acceptance gating, and immutable experiment history. Live
+walk-forward isolation, acceptance gating, immutable experiment history,
+market-calendar scheduling and replay idempotency, prospective outcome
+reconciliation, manual-operation CSRF/locking/rate protection, sanitized
+diagnostics, and encrypted backup restore/tamper rejection. Live
 SPY and Chevron Yahoo checks and
 the local fixture-backed CVX analysis were smoke-tested successfully on
 2026-08-20.

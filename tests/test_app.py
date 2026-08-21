@@ -60,7 +60,22 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
             missing_analysis = await client.get("/api/v1/analyses/CVX")
             strategies = await client.get("/api/v1/strategies")
             setups = await client.get("/api/v1/setups")
+            alerts = await client.get("/api/v1/alerts")
             setup_history = await client.get("/api/v1/setups/CVX/history")
+            provider_operations = await client.get("/api/v1/providers/operations")
+            operations_schedule = await client.get("/api/v1/operations/schedule")
+            operation_runs = await client.get("/api/v1/operations/runs")
+            diagnostics = await client.get("/api/v1/diagnostics")
+            outcome_refresh = await client.post(
+                "/api/v1/operations/refresh/outcomes"
+            )
+            repeated_refresh = await client.post(
+                "/api/v1/operations/refresh/outcomes"
+            )
+            cross_site_refresh = await client.post(
+                "/api/v1/operations/refresh/outcomes",
+                headers={"Origin": "https://attacker.example"},
+            )
             backtests = await client.get("/api/v1/backtests")
             experiments = await client.get("/api/v1/backtests/experiments")
             missing_backtest = await client.get(f"/api/v1/backtests/{'a' * 64}")
@@ -73,7 +88,7 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
     assert health.json()["status"] == "ok"
     assert ready.status_code == 200
     assert ready.json()["status"] == "ready"
-    assert ready.json()["migration_version"] == 8
+    assert ready.json()["migration_version"] == 9
     assert providers.status_code == 200
     assert len(providers.json()["providers"]) == 6
     assert providers.json()["selections"]["daily_bars"]["primary"]["provider_id"] == (
@@ -115,15 +130,43 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
         for item in strategies.json()["items"]
     )
     assert setups.json() == {"items": [], "count": 0}
+    assert alerts.json() == {"items": [], "count": 0}
     assert setup_history.json() == {"items": [], "count": 0}
+    assert provider_operations.status_code == 200
+    assert len(provider_operations.json()["items"]) == 18
+    assert all(
+        item["contract_status"] == "compatible"
+        for item in provider_operations.json()["items"]
+    )
+    assert operations_schedule.status_code == 200
+    assert {item["task"] for item in operations_schedule.json()["items"]} == {
+        "civictracker",
+        "broad_news",
+        "active_news",
+        "earnings",
+        "daily_prices",
+        "intraday_prices",
+        "after_close_report",
+        "prospective_outcomes",
+    }
+    assert operation_runs.json() == {"items": []}
+    assert diagnostics.status_code == 200
+    assert diagnostics.json()["migration_version"] == 9
+    assert str(tmp_path) not in diagnostics.text
+    assert "cred_groq" not in diagnostics.text
+    assert outcome_refresh.status_code == 200
+    assert outcome_refresh.json()["action"] == "outcomes"
+    assert repeated_refresh.status_code == 429
+    assert cross_site_refresh.status_code == 403
     assert backtests.json() == {"items": [], "count": 0}
     assert experiments.json() == {"items": [], "count": 0}
     assert missing_backtest.status_code == 404
     assert missing_experiment.status_code == 404
     assert dashboard.status_code == 200
     assert "The local research service is running." in dashboard.text
+    assert "Market-day controls" in dashboard.text
     assert "No recommendation is generated" in dashboard.text
-    assert "Configured providers" in dashboard.text
+    assert "Capability contracts" in dashboard.text
     assert "Market bars" in dashboard.text
     assert "Current verified companies" in dashboard.text
     assert "Latest AI assessments" in dashboard.text

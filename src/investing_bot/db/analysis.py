@@ -79,6 +79,20 @@ class AnalysisOutcome(BaseModel):
     outcome_close: float | None
     return_pct: float | None
     recorded_at: AwareDatetime | None
+    market_provider_id: str | None = None
+
+
+class PendingAnalysisOutcome(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    assessment_id: str
+    ticker: str
+    assessment_created_at: AwareDatetime
+    horizon_sessions: int
+    baseline_session_date: date | None
+    baseline_close: float | None
+    outcome_session_date: date | None
+    market_provider_id: str | None
 
 
 class AnalysisRepository:
@@ -198,6 +212,13 @@ class AnalysisRepository:
         )
         return None if row is None else _assessment_from_row(row)
 
+    def get(self, assessment_id: str) -> AIAssessment | None:
+        row = self._database.fetchone(
+            f"SELECT {_ASSESSMENT_COLUMNS} FROM ai_assessments WHERE assessment_id=?",
+            [assessment_id],
+        )
+        return None if row is None else _assessment_from_row(row)
+
     def list_latest(self, *, limit: int = 20) -> list[AIAssessment]:
         rows = self._database.fetchall(
             f"""
@@ -226,13 +247,87 @@ class AnalysisRepository:
             """
             SELECT assessment_id, horizon_sessions, baseline_session_date,
                    baseline_close, outcome_session_date, outcome_close,
-                   return_pct, recorded_at
+                   return_pct, recorded_at, market_provider_id
             FROM analysis_outcomes WHERE assessment_id=? ORDER BY horizon_sessions
             """,
             [assessment_id],
         )
         fields = tuple(AnalysisOutcome.model_fields)
         return [AnalysisOutcome(**dict(zip(fields, row, strict=True))) for row in rows]
+
+    def pending_outcomes(self, *, limit: int = 1_000) -> list[PendingAnalysisOutcome]:
+        if not 1 <= limit <= 10_000:
+            raise ValueError("limit must be between 1 and 10000")
+        rows = self._database.fetchall(
+            """
+            SELECT o.assessment_id, a.ticker, a.created_at, o.horizon_sessions,
+                   o.baseline_session_date, o.baseline_close,
+                   o.outcome_session_date, o.market_provider_id
+            FROM analysis_outcomes o
+            JOIN ai_assessments a ON a.assessment_id=o.assessment_id
+            WHERE o.outcome_session_date IS NULL
+            ORDER BY a.created_at, o.horizon_sessions
+            LIMIT ?
+            """,
+            [limit],
+        )
+        fields = tuple(PendingAnalysisOutcome.model_fields)
+        return [
+            PendingAnalysisOutcome(**dict(zip(fields, row, strict=True)))
+            for row in rows
+        ]
+
+    def record_outcome_baseline(
+        self,
+        *,
+        assessment_id: str,
+        horizon_sessions: int,
+        session_date: date,
+        close: float,
+        market_provider_id: str,
+    ) -> None:
+        self._database.execute(
+            """
+            UPDATE analysis_outcomes
+            SET baseline_session_date=?, baseline_close=?, market_provider_id=?
+            WHERE assessment_id=? AND horizon_sessions=?
+              AND baseline_session_date IS NULL
+            """,
+            [
+                session_date,
+                close,
+                market_provider_id,
+                assessment_id,
+                horizon_sessions,
+            ],
+        )
+
+    def record_outcome_result(
+        self,
+        *,
+        assessment_id: str,
+        horizon_sessions: int,
+        session_date: date,
+        close: float,
+        return_pct: float,
+        recorded_at: datetime,
+    ) -> None:
+        self._database.execute(
+            """
+            UPDATE analysis_outcomes
+            SET outcome_session_date=?, outcome_close=?, return_pct=?, recorded_at=?
+            WHERE assessment_id=? AND horizon_sessions=?
+              AND outcome_session_date IS NULL
+            """,
+            [
+                session_date,
+                close,
+                return_pct,
+                recorded_at,
+                assessment_id,
+                horizon_sessions,
+            ],
+        )
 
     def count(self) -> int:
         row = self._database.fetchone("SELECT COUNT(*) FROM ai_assessments")

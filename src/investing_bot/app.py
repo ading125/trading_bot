@@ -20,9 +20,11 @@ from investing_bot.db import (
     Database,
     JobRunRepository,
     MarketDataRepository,
+    OperationsRepository,
     SocialPostRepository,
     StrategyRepository,
 )
+from investing_bot.models import ManualAction
 from investing_bot.logging import configure_logging
 from investing_bot.providers import (
     CredentialReferenceStore,
@@ -34,19 +36,19 @@ from investing_bot.providers import (
 from investing_bot.web.routes import APP_VERSION, router
 from investing_bot.services import (
     AnalysisEvidenceBuilder,
-    AnalysisPollingService,
     BacktestResearchService,
-    CandidatePollingService,
     CandidateRegistryService,
     CivicTrackerCollector,
-    CivicTrackerPollingService,
     CompanyResolver,
     GrowthAnalysisService,
     MarketDataCollector,
     MarketPollingService,
+    OperationalScheduler,
+    OperationsCoordinator,
+    OperationsSchedulePlanner,
+    OutcomeTrackingService,
     SP500UniverseCollector,
     StrategyEvaluationService,
-    StrategyPollingService,
 )
 from investing_bot.strategies import build_default_strategy_registry
 
@@ -76,11 +78,7 @@ def create_app(
         database = Database(resolved_settings.database_path)
         repository: JobRunRepository | None = None
         provider_manager: ProviderManager | None = None
-        polling_service: CivicTrackerPollingService | None = None
-        market_polling_service: MarketPollingService | None = None
-        candidate_polling_service: CandidatePollingService | None = None
-        analysis_polling_service: AnalysisPollingService | None = None
-        strategy_polling_service: StrategyPollingService | None = None
+        operational_scheduler: OperationalScheduler | None = None
         app.state.database = database
         app.state.settings = resolved_settings
         try:
@@ -95,6 +93,7 @@ def create_app(
             analysis_repository = AnalysisRepository(database)
             strategy_repository = StrategyRepository(database)
             backtest_repository = BacktestRepository(database)
+            operations_repository = OperationsRepository(database)
             strategy_registry = build_default_strategy_registry()
             interrupted = repository.mark_running_jobs_interrupted()
             app.state.job_runs = repository
@@ -138,6 +137,7 @@ def create_app(
             app.state.strategy_evaluations = strategy_repository
             app.state.strategy_registry = strategy_registry
             app.state.backtests = backtest_repository
+            app.state.operation_runs = operations_repository
             collector = CivicTrackerCollector(
                 provider_manager=provider_manager,
                 posts=post_repository,
@@ -187,61 +187,59 @@ def create_app(
                 repository=backtest_repository,
                 jobs=repository,
             )
+            market_poller = MarketPollingService(
+                market_collector,
+                symbols=resolved_settings.parsed_market_seed_symbols,
+                interval_seconds=resolved_settings.market_poll_seconds,
+                daily_history_days=resolved_settings.market_daily_history_days,
+                intraday_history_days=resolved_settings.market_intraday_history_days,
+                universe_collector=sp500_collector,
+            )
+            outcome_service = OutcomeTrackingService(
+                analyses=analysis_repository,
+                market=market_repository,
+            )
+            scheduled_actions: set[ManualAction] = {ManualAction.OUTCOMES}
+            if resolved_settings.civictracker_collection_enabled:
+                scheduled_actions.add(ManualAction.SOURCES)
+            if resolved_settings.market_collection_enabled:
+                scheduled_actions.add(ManualAction.MARKET)
+            if resolved_settings.candidate_refresh_enabled:
+                scheduled_actions.add(ManualAction.CANDIDATES)
             if (
-                resolved_settings.environment != "test"
-                and resolved_settings.civictracker_collection_enabled
-            ):
-                polling_service = CivicTrackerPollingService(
-                    collector,
-                    interval_seconds=resolved_settings.civictracker_poll_seconds,
-                )
-                polling_service.start()
-            if (
-                resolved_settings.environment != "test"
-                and resolved_settings.market_collection_enabled
-            ):
-                market_polling_service = MarketPollingService(
-                    market_collector,
-                    symbols=resolved_settings.parsed_market_seed_symbols,
-                    interval_seconds=resolved_settings.market_poll_seconds,
-                    daily_history_days=resolved_settings.market_daily_history_days,
-                    intraday_history_days=resolved_settings.market_intraday_history_days,
-                    universe_collector=sp500_collector,
-                )
-                market_polling_service.start()
-            if (
-                resolved_settings.environment != "test"
-                and resolved_settings.candidate_refresh_enabled
-            ):
-                candidate_polling_service = CandidatePollingService(
-                    candidate_service,
-                    interval_seconds=resolved_settings.candidate_refresh_seconds,
-                )
-                candidate_polling_service.start()
-            if (
-                resolved_settings.environment != "test"
-                and resolved_settings.analysis_refresh_enabled
+                resolved_settings.analysis_refresh_enabled
                 and resolved_settings.parsed_analysis_seed_symbols
             ):
-                analysis_polling_service = AnalysisPollingService(
-                    analysis_service,
-                    symbols=resolved_settings.parsed_analysis_seed_symbols,
-                    interval_seconds=resolved_settings.analysis_refresh_seconds,
-                    initial_delay_seconds=10,
-                )
-                analysis_polling_service.start()
+                scheduled_actions.add(ManualAction.ANALYSIS)
             if (
-                resolved_settings.environment != "test"
-                and resolved_settings.strategy_refresh_enabled
+                resolved_settings.strategy_refresh_enabled
                 and resolved_settings.parsed_strategy_seed_symbols
             ):
-                strategy_polling_service = StrategyPollingService(
-                    strategy_service,
-                    symbols=resolved_settings.parsed_strategy_seed_symbols,
-                    interval_seconds=resolved_settings.strategy_refresh_seconds,
-                    initial_delay_seconds=20,
+                scheduled_actions.add(ManualAction.STRATEGIES)
+            operations = OperationsCoordinator(
+                jobs=repository,
+                config_hash=provider_configuration.configuration_hash,
+                source_collector=collector,
+                market_poller=market_poller,
+                candidate_service=candidate_service,
+                analysis_service=analysis_service,
+                strategy_service=strategy_service,
+                outcome_service=outcome_service,
+                analysis_symbols=resolved_settings.parsed_analysis_seed_symbols,
+                strategy_symbols=resolved_settings.parsed_strategy_seed_symbols,
+                scheduled_actions=frozenset(scheduled_actions),
+            )
+            schedule_planner = OperationsSchedulePlanner()
+            app.state.outcome_service = outcome_service
+            app.state.operations = operations
+            app.state.schedule_planner = schedule_planner
+            if resolved_settings.environment != "test":
+                operational_scheduler = OperationalScheduler(
+                    planner=schedule_planner,
+                    repository=operations_repository,
+                    handler=operations.run_scheduled,
                 )
-                strategy_polling_service.start()
+                operational_scheduler.start()
             logger.info(
                 "application ready",
                 extra={
@@ -253,16 +251,8 @@ def create_app(
             )
             yield
         finally:
-            if strategy_polling_service is not None:
-                await strategy_polling_service.stop()
-            if analysis_polling_service is not None:
-                await analysis_polling_service.stop()
-            if candidate_polling_service is not None:
-                await candidate_polling_service.stop()
-            if market_polling_service is not None:
-                await market_polling_service.stop()
-            if polling_service is not None:
-                await polling_service.stop()
+            if operational_scheduler is not None:
+                await operational_scheduler.stop()
             if repository is not None:
                 interrupted = repository.mark_running_jobs_interrupted()
                 if interrupted:

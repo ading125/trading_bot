@@ -1,6 +1,6 @@
 # Project Context
 
-**Status:** Milestones 1–8 implemented; Milestone 9 operations is next<br>
+**Status:** Milestones 1–9 implemented<br>
 **Last updated:** 2026-08-21
 
 ## Purpose
@@ -37,7 +37,7 @@ The tool separates two questions that must not be conflated:
 - The application will run in Docker and expose a local web dashboard.
 - Docker will publish only to `127.0.0.1` by default.
 - Persistent state will use a named Docker volume.
-- An optional Windows launcher may start Docker Desktop/Compose and open the dashboard.
+- An optional Windows/WSL PowerShell launcher starts the local Python service.
 - `yfinance` is the initial market, news, and earnings-access library.
 - CivicTracker data will use its JSON feed first; `.social-post` HTML parsing is fallback behavior only.
 - Every external integration is selected by capability through validated configuration. Initial providers are defaults, not dependencies of business logic.
@@ -131,8 +131,17 @@ The current environment has a Ryzen 5 3600, 12 logical CPUs, approximately 8 GB 
   history. Walk-forward experiments preserve parameter trials, keep development,
   validation, and final out-of-sample results separate, run final holdout data
   only for the selected candidate, and never automatically enable alerts.
-- Live market polling is intentionally opt-in and initially limited to a
+- Milestone 9 provides a persisted U.S.-market-calendar scheduler, coalesced
+  news/earnings/bar refreshes, audited manual controls with leases and cooldowns,
+  5/10/20-session outcome reconciliation, rich alert/setup cards, CSS price
+  charts, provider contract/fallback/freshness views, source and run health,
+  sanitized diagnostics, Argon2id/AES-256-GCM whole-volume backup/restore, and
+  an optional Windows/WSL launcher.
+- Live market collection is intentionally opt-in and initially limited to a
   configurable seed watchlist. Strategy output is explicitly unvalidated
   hypothesis research; live alerts remain disabled unless a persisted research
   acceptance report passes and the source-controlled manifest is separately reviewed.
+- Extraordinary exchange closures require manual operational awareness, charts
+  are intentionally non-interactive, and backups require a stopped server for a
+  consistent DuckDB snapshot.
 - Docker acceptance checks remain pending in an environment with Docker available.

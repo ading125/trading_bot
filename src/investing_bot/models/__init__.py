@@ -73,6 +73,14 @@ from investing_bot.models.strategy import (
     StrategyResearchStatus,
     StrategySignal,
 )
+from investing_bot.models.operations import (
+    ManualAction,
+    ManualActionResult,
+    OperationalScheduleRun,
+    OperationalTask,
+    OutcomeReconciliationSummary,
+    ScheduledOperation,
+)
 
 __all__ = [
     "AnalysisDecision",
@@ -142,4 +150,10 @@ __all__ = [
     "WalkForwardExperimentRequest",
     "WalkForwardPlan",
     "YearPerformance",
+    "ManualAction",
+    "ManualActionResult",
+    "OperationalScheduleRun",
+    "OperationalTask",
+    "OutcomeReconciliationSummary",
+    "ScheduledOperation",
 ]

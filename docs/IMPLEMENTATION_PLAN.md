@@ -1,6 +1,6 @@
 # Implementation Plan
 
-**Status:** Milestones 1–8 implemented; Milestone 9 is next<br>
+**Status:** Milestones 1–9 implemented<br>
 **Last updated:** 2026-08-21
 
 ## Guiding approach
@@ -179,7 +179,9 @@ Completion criteria:
 
 ## Milestone 9 — Intraday dashboard and operations
 
-**Implementation status:** Next milestone.
+**Implementation status:** Complete as of 2026-08-21. Production polling is
+owned by a persisted, market-calendar-aware scheduler; manual controls use a
+separate audited locking/cooldown path.
 
 Deliverables:
 

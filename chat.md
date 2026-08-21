@@ -367,6 +367,54 @@ The following sections record settled decisions and their reasoning. They are no
   deterministic caching, immutable persistence, walk-forward isolation, API
   contracts, and the unvalidated-alert gate.
 
+## 2026-08-21 — Market-day dashboard and local operations
+
+- Replaced the independent fixed-delay production pollers with one U.S.
+  market-calendar-aware scheduler. Scheduled task identities and timestamps are
+  persisted, so restarts cannot silently replay the same market-day slot.
+- Kept CivicTracker available throughout the day while market news, earnings,
+  daily/intraday bars, after-close research, and outcome reconciliation run only
+  on regular sessions. Common early closes are included; extraordinary exchange
+  closures remain an operational limitation.
+- Coalesced related market tasks due within five minutes into one bounded market
+  collection. This preserves the current provider-neutral all-market refresh
+  boundary without duplicating Yahoo calls at overlapping schedule times.
+- Added same-origin dashboard POST controls for source, market, candidate, AI,
+  strategy, and outcome refreshes. Each uses a persistent job record, a job-type
+  lease, and a cooldown; there is no browser endpoint for credential entry or
+  vault unlock.
+- Added prospective outcome reconciliation for each immutable AI assessment at
+  5, 10, and 20 later sessions. Baseline and outcome prices are adjusted,
+  provider-pinned, and constrained by bar completion and known-availability
+  timestamps.
+- Expanded the dashboard with candidate evidence links, alert lifecycle,
+  timestamps, AI thesis and risks, entry/invalidation/exit/reward-to-risk,
+  dependency-free CSS price charts, source freshness, provider selection and
+  fallback state, contract versions, sanitized quota/latency, upcoming schedule,
+  and run history. An empty setup list remains a valid result.
+- Added sanitized JSON diagnostics that omit credential references, secret
+  material, local filesystem paths, and raw exception text.
+- Added whole-data-directory backups encrypted with an Argon2id-derived
+  AES-256-GCM key. Restore authenticates before extraction, rejects unsafe tar
+  entries, and only creates a new destination. Backups must be made while the
+  server is stopped for a consistent DuckDB snapshot.
+- Added an optional PowerShell launcher for Windows users running the project in
+  WSL. It remains a convenience wrapper around the normal Python command.
+- Verified 141 offline tests, including market calendar/early close behavior,
+  full-day schedule replay idempotency, after-close prospective outcomes,
+  same-origin and rate-limit controls, diagnostics sanitization, and encrypted
+  backup round-trip/tamper rejection.
+
+## Remaining operational limitations
+
+- Extraordinary NYSE closures are not automatically updated because the local
+  app deliberately has no calendar API dependency.
+- CSS charts provide a compact recent-close view, not interactive technical
+  charting.
+- Backup consistency requires stopping the server; online DuckDB snapshots are
+  not implemented.
+- The Windows launcher assumes WSL and does not install Python or dependencies.
+
 ## Open decisions
 
 No decision blocks building the ingestion, storage, AI-analysis, strategy-plugin, and backtest frameworks. Before calling entry/exit output production-ready, the baseline strategy family and its parameter acceptance criteria must be validated through research.

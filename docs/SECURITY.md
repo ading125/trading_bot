@@ -65,6 +65,8 @@ Python strategies are trusted executable code. They must be reviewed, committed,
 - Produce sanitized diagnostic bundles through an explicit action.
 - Encrypt backups containing credentials or private configuration.
 - Verify restore into a new named volume before relying on a backup procedure.
+- Stop the application before backup creation so the DuckDB snapshot is
+  internally consistent; restore never overwrites an existing destination.
 - Pin dependencies and image digests; upgrades are deliberate and tested, never automatic.
 
 ## Security acceptance checks
