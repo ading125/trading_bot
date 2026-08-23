@@ -156,11 +156,13 @@ AI decisions are explicitly excluded. Results are available through
 `/api/v1/backtests` and `/api/v1/backtests/experiments` and appear in a separate
 dashboard research section.
 
-Milestone 9 turns the dashboard into the local operations surface. It shows the
-candidate queue and evidence links, AI research, setup/alert lifecycle, recent
-price charts, complete entry/invalidation/exit controls, source freshness,
-provider selection and fallback activity, schema versions, sanitized quota and
-latency, the next U.S. market-session tasks, and persisted schedule history.
+Milestone 9 turns the dashboard into the local operations surface. AI research
+is the primary workspace, followed by setup/alert and backtest research. Compact
+header controls open right-side panels for system status, the candidate queue,
+the source archive, provider health, source freshness, and schedule history.
+The main page retains recent price charts and complete
+entry/invalidation/exit controls without keeping operational diagnostics in the
+reading flow.
 Manual source, market, candidate, analysis, strategy, and outcome refreshes are
 protected by a random per-server CSRF token, one-run locks, and cooldowns. The same
 state is available through `/api/v1/operations/*`, `/api/v1/providers/operations`,

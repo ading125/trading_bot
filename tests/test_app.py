@@ -192,9 +192,13 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
     assert dashboard.status_code == 200
     assert app.state.csrf_token in dashboard.text
     assert dashboard.headers["cache-control"] == "no-store"
-    assert "The local research service is running." in dashboard.text
-    assert "Market-day controls" in dashboard.text
-    assert "No recommendation is generated" in dashboard.text
+    assert 'class="hero"' not in dashboard.text
+    assert "Run workspace tasks" in dashboard.text
+    assert "Analyze top 5" in dashboard.text
+    assert 'id="system-drawer"' in dashboard.text
+    assert 'id="candidate-drawer"' in dashboard.text
+    assert 'id="source-drawer"' in dashboard.text
+    assert 'id="provider-drawer"' in dashboard.text
     assert "Capability contracts" in dashboard.text
     assert "Market bars" in dashboard.text
     assert "Current verified companies" in dashboard.text

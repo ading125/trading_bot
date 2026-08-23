@@ -308,6 +308,23 @@ The following sections record settled decisions and their reasoning. They are no
 - Redirected the completed dashboard action directly to the rendered assessment
   section and verified the complete implementation with 144 offline tests.
 
+## 2026-08-23 — AI-first dashboard overhaul
+
+- Removed the oversized informational hero and made the AI assessment list the
+  primary dashboard surface.
+- Moved system metrics, the candidate registry, the source archive, and provider
+  health into accessible right-side dialog panels opened from the header.
+- Grouped provider contracts, source freshness, and scheduled-run history in one
+  operational panel while keeping source records and candidates independently
+  accessible.
+- Moved all manual refresh controls to a single bottom operations panel and
+  emphasized the bounded top-five analysis action.
+- Added keyboard-accessible close controls, native Escape handling, backdrop
+  dismissal, responsive drawer layouts, and an external self-hosted script that
+  remains compatible with the dashboard content-security policy.
+- Verified the rendered structure, local CSS/JavaScript responses, and all 144
+  offline tests.
+
 ## Current assumptions to validate experimentally
 
 - The first baseline entry/exit algorithm should be simple, explainable, and parameterized; trend-pullback and breakout variants are leading candidates.

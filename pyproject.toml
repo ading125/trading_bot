@@ -42,6 +42,7 @@ investing_bot = [
     "providers/fixtures/data/*.json",
     "services/data/*.json",
     "web/static/*.css",
+    "web/static/*.js",
     "web/templates/*.html",
 ]
 
