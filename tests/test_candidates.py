@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
 
 from investing_bot.db import (
+    CandidateEvidence,
     CandidateRepository,
     CandidateSourceType,
     CompanyAlias,
@@ -16,8 +18,12 @@ from investing_bot.db import (
     SocialPostRepository,
 )
 from investing_bot.models import (
+    BarInterval,
+    CanonicalMetadata,
     EarningsRequest,
+    MarketBar,
     NewsRequest,
+    PriceAdjustment,
     ProviderCapability,
     SocialPostsRequest,
 )
@@ -54,7 +60,7 @@ def setup_candidates(
 ]:
     database = Database(tmp_path / "investing_bot.duckdb")
     database.connect()
-    assert database.migrate() == 9
+    assert database.migrate() == 11
     repository = CandidateRepository(database)
     provider = RecordedFixtureProvider("fixture_recorded")
     registry = ProviderRegistry()
@@ -186,6 +192,107 @@ async def test_direct_sources_form_a_union_and_expire_without_refresh(
     database.close()
 
 
+def test_analysis_queue_prioritizes_fresh_company_activity_and_excludes_spy(
+    tmp_path: Path,
+) -> None:
+    database, repository, _, _ = setup_candidates(tmp_path)
+    now = datetime.now(UTC)
+    evidence: list[CandidateEvidence] = []
+
+    def add(
+        symbol: str,
+        company: str,
+        source_type: CandidateSourceType,
+        index: int,
+        *,
+        event_at: datetime,
+    ) -> None:
+        evidence.append(
+            CandidateEvidence(
+                evidence_id=f"{symbol}-{source_type.value}-{index}",
+                symbol=symbol,
+                company_name=company,
+                source_type=source_type,
+                source_record_id=f"record-{symbol}-{source_type.value}-{index}",
+                source_excerpt="Material company development.",
+                source_url="https://example.com/source",
+                event_at=event_at,
+                observed_at=now,
+                extraction_method="source_symbol",
+                resolution_id=None,
+                resolution_confidence=1.0,
+                relevance=0.9,
+                expires_at=now + timedelta(days=14),
+                active=True,
+            )
+        )
+
+    for index in range(5):
+        add("SPY", "SPDR S&P 500 ETF Trust", CandidateSourceType.NEWS, index, event_at=now)
+    for index in range(3):
+        add("TREND", "Trending Company", CandidateSourceType.NEWS, index, event_at=now)
+    add("MIX", "Mixed Evidence Company", CandidateSourceType.NEWS, 0, event_at=now)
+    add("MIX", "Mixed Evidence Company", CandidateSourceType.EARNINGS, 0, event_at=now)
+    add(
+        "MOVE",
+        "High Momentum Company",
+        CandidateSourceType.NEWS,
+        0,
+        event_at=now - timedelta(days=5),
+    )
+    for index in range(4):
+        add(
+            "OLD",
+            "Older News Company",
+            CandidateSourceType.NEWS,
+            index,
+            event_at=now - timedelta(days=5),
+        )
+
+    repository.store_evidence_batch(tuple(evidence))
+    repository.refresh_candidate_state(now=now)
+    market = MarketDataRepository(database, dataset_root=tmp_path / "market")
+    market.store_bars(
+        tuple(
+            _daily_bar(
+                "MOVE",
+                date(2026, 5, 1) + timedelta(days=index),
+                100.0 + index * 5.0,
+            )
+            for index in range(20)
+        )
+    )
+
+    assert repository.list_analysis_symbols(limit=10) == (
+        "MOVE",
+        "TREND",
+        "MIX",
+        "OLD",
+    )
+    database.close()
+
+
+def test_repeated_large_alias_snapshot_is_an_immutable_noop(tmp_path: Path) -> None:
+    database, repository, _, _ = setup_candidates(tmp_path)
+    aliases = tuple(
+        CompanyAlias(
+            alias=f"Company {index}",
+            normalized_alias=f"company {index}",
+            symbol=f"S{index}",
+            company_name=f"Company {index}",
+            alias_version="snapshot-1",
+            source="sp500_snapshot",
+            verified_at=NOW,
+        )
+        for index in range(600)
+    )
+
+    assert repository.store_aliases(aliases) == 600
+    assert repository.store_aliases(aliases) == 600
+    assert database.fetchone("SELECT COUNT(*) FROM company_aliases") == (600,)
+    database.close()
+
+
 @pytest.mark.anyio
 async def test_ambiguous_alias_never_silently_selects_a_ticker(
     tmp_path: Path,
@@ -310,3 +417,34 @@ async def test_explicit_ticker_is_verified_by_symbol_provider(tmp_path: Path) ->
     assert result[0].provider_id == "fixture_recorded"
     assert result[0].provider_request_id
     database.close()
+
+
+def _daily_bar(symbol: str, session: date, close: float) -> MarketBar:
+    bar_start = datetime.combine(session, time(13, 30), UTC)
+    bar_end = datetime.combine(session, time(20), UTC)
+    identity = f"{symbol}:{session}:{close}"
+    return MarketBar(
+        symbol=symbol,
+        interval=BarInterval.DAY_1,
+        bar_start=bar_start,
+        bar_end=bar_end,
+        session_date=session,
+        exchange_timezone="America/New_York",
+        open=close,
+        high=close + 1,
+        low=close - 1,
+        close=close,
+        volume=1_000_000,
+        adjustment=PriceAdjustment.ADJUSTED,
+        metadata=CanonicalMetadata(
+            provider_id="fixture_recorded",
+            provider_record_id=identity,
+            event_at=bar_end,
+            known_available_at=bar_end,
+            retrieved_at=bar_end,
+            raw_payload_hash=sha256(identity.encode()).hexdigest(),
+            schema_version="market_bar.v1",
+            adapter_version="1.0.0",
+            dataset_lineage="fixture_recorded:adjusted:daily",
+        ),
+    )

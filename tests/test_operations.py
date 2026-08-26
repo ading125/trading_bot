@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, time, timedelta
 from hashlib import sha256
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -15,6 +16,7 @@ from investing_bot.db import (
     AIAssessment,
     AnalysisRepository,
     Database,
+    JobRunRepository,
     MarketDataRepository,
     OperationsRepository,
 )
@@ -23,12 +25,14 @@ from investing_bot.models import (
     BarInterval,
     CanonicalMetadata,
     MarketBar,
+    ManualAction,
     OperationalTask,
     PolicyRelevance,
     PriceAdjustment,
 )
 from investing_bot.services import (
     OperationalScheduler,
+    OperationsCoordinator,
     OperationsSchedulePlanner,
     OutcomeTrackingService,
     USMarketCalendar,
@@ -87,6 +91,58 @@ async def test_full_market_day_schedule_is_idempotent(tmp_path: Path) -> None:
     assert first_count == len(dispatched)
     assert second_count == 0
     assert all(item.status == "succeeded" for item in repository.list_recent())
+    database.close()
+
+
+@pytest.mark.anyio
+async def test_analysis_shortlist_continues_after_one_company_fails(
+    tmp_path: Path,
+) -> None:
+    database = Database(tmp_path / "investing_bot.duckdb")
+    database.connect()
+    database.migrate()
+
+    class CandidateQueue:
+        @staticmethod
+        def analysis_queue(*, limit: int) -> tuple[str, ...]:
+            assert limit == 5
+            return ("MSFT", "AAPL", "NVDA")
+
+    class PartialAnalysis:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def analyze(self, symbol: str) -> SimpleNamespace:
+            self.calls.append(symbol)
+            if symbol == "AAPL":
+                raise RuntimeError("provider rejected structured output")
+            return SimpleNamespace(cached=symbol == "MSFT")
+
+    analysis = PartialAnalysis()
+    coordinator = OperationsCoordinator(
+        jobs=JobRunRepository(database),
+        config_hash="a" * 64,
+        source_collector=None,
+        market_poller=None,
+        candidate_service=CandidateQueue(),
+        analysis_service=analysis,
+        strategy_service=None,
+        outcome_service=None,
+        analysis_symbols=(),
+        analysis_candidate_limit=5,
+        strategy_symbols=(),
+    )
+
+    result = await coordinator.run_manual(ManualAction.ANALYSIS)
+
+    assert analysis.calls == ["MSFT", "AAPL", "NVDA"]
+    assert result.summary == (
+        "analysis completed for 2 automatically selected symbols (1 cached); "
+        "1 failed (AAPL)"
+    )
+    assert JobRunRepository(database).latest_for_type(
+        "manual_refresh:analysis"
+    ).status == "succeeded"
     database.close()
 
 

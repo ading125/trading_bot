@@ -61,7 +61,18 @@ from investing_bot.services import (
 
 APP_VERSION = version("investing-bot")
 _WEB_DIR = Path(__file__).resolve().parent
+_INLINE_SOURCE_CITATION = re.compile(
+    r"\s*(?:\(|\[)?source(?:_id)?\s*[:#]?\s*[0-9a-f]{64}(?:\)|\])?",
+    re.IGNORECASE,
+)
+
+
+def _humanize_analysis_text(value: object) -> str:
+    return _INLINE_SOURCE_CITATION.sub("", str(value)).strip()
+
+
 templates = Jinja2Templates(directory=str(_WEB_DIR / "templates"))
+templates.env.filters["humanize_analysis_text"] = _humanize_analysis_text
 
 router = APIRouter()
 
@@ -341,10 +352,33 @@ async def dashboard(request: Request) -> HTMLResponse:
         else []
     )
     analyses = (
-        request.app.state.analyses.list_latest(limit=10)
+        request.app.state.analyses.list_latest(limit=50)
         if hasattr(request.app.state, "analyses")
         else []
     )
+    analyses.sort(
+        key=lambda item: (item.growth_score, item.evidence_quality, item.created_at),
+        reverse=True,
+    )
+    analysis_views = [
+        {
+            "rank": index,
+            "assessment": assessment,
+            "momentum": (
+                request.app.state.market_data.momentum(assessment.ticker)
+                if hasattr(request.app.state, "market_data")
+                else None
+            ),
+        }
+        for index, assessment in enumerate(analyses, start=1)
+    ]
+    analysis_evidence_counts = {}
+    if hasattr(request.app.state, "analyses"):
+        for assessment in analyses:
+            package = request.app.state.analyses.get_package(assessment.evidence_hash)
+            analysis_evidence_counts[assessment.evidence_hash] = (
+                len(package.evidence) if package is not None else 0
+            )
     strategy_manifests = (
         request.app.state.strategy_registry.manifests()
         if hasattr(request.app.state, "strategy_registry")
@@ -410,6 +444,8 @@ async def dashboard(request: Request) -> HTMLResponse:
                 else 0
             ),
             "analyses": analyses,
+            "analysis_views": analysis_views,
+            "analysis_evidence_counts": analysis_evidence_counts,
             "analysis_count": (
                 request.app.state.analyses.count()
                 if hasattr(request.app.state, "analyses")

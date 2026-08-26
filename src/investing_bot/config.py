@@ -48,6 +48,9 @@ class AppSettings(BaseSettings):
     market_collection_enabled: bool = False
     market_poll_seconds: int = Field(default=3_600, ge=900, le=86_400)
     market_seed_symbols: str = "SPY,AAPL,MSFT,CVX"
+    market_discovery_enabled: bool = True
+    market_discovery_batch_size: int = Field(default=10, ge=1, le=50)
+    market_discovery_news_limit: int = Field(default=10, ge=1, le=50)
     market_daily_history_days: int = Field(default=730, ge=30, le=7_300)
     market_intraday_history_days: int = Field(default=5, ge=1, le=59)
     candidate_refresh_enabled: bool = True
@@ -55,7 +58,7 @@ class AppSettings(BaseSettings):
     analysis_refresh_enabled: bool = True
     analysis_refresh_seconds: int = Field(default=3_600, ge=900, le=86_400)
     analysis_seed_symbols: str = ""
-    analysis_candidate_limit: int = Field(default=5, ge=1, le=10)
+    analysis_candidate_limit: int = Field(default=10, ge=1, le=20)
     strategy_refresh_enabled: bool = True
     strategy_refresh_seconds: int = Field(default=900, ge=300, le=86_400)
     strategy_seed_symbols: str = "CVX"

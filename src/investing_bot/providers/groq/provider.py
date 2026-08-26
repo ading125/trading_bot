@@ -45,7 +45,7 @@ from investing_bot.providers.credentials import (
 
 PROVIDER_ID = "groq"
 MODEL_ID = "openai/gpt-oss-120b"
-ADAPTER_VERSION = "1.0.0"
+ADAPTER_VERSION = "1.0.1"
 SCHEMA_VERSION = "structured_analysis.v1"
 BASE_URL = "https://api.groq.com/openai/v1"
 _MAX_EVIDENCE_ITEMS = 12
@@ -60,9 +60,13 @@ this is not a trade recommendation.
 
 Evaluate materiality, growth evidence, novelty, source quality, policy
 relevance, catalyst horizon, the bear case, and missing or contradictory facts.
-Political praise alone cannot justify a qualify decision. Cite source_ids for
-every material conclusion. Use insufficient_evidence when the supplied record
-cannot support an assessment. Keep every narrative and list item concise.
+When adjusted-price momentum is supplied, use it as corroborating context for
+the growth score, not as proof of future performance. Price movement alone
+cannot justify a qualify decision.
+Political praise alone cannot justify a qualify decision. Cite at least one
+supplied record using only the structured source_ids field, including for an
+insufficient_evidence decision. Never put opaque source IDs in narrative text
+or list items. Keep every narrative and list item concise.
 """
 
 
@@ -80,7 +84,7 @@ class _AnalysisPayload(BaseModel):
     bearish_case: str = Field(max_length=5_000)
     risks: tuple[str, ...] = Field(max_length=10)
     uncertainties: tuple[str, ...] = Field(max_length=10)
-    source_ids: tuple[str, ...] = Field(max_length=40)
+    source_ids: tuple[str, ...] = Field(min_length=1, max_length=40)
 
 
 def build_groq_manifest() -> ProviderManifest:
@@ -360,17 +364,31 @@ class GroqStructuredLLMProvider:
 
             if response.status_code < 400:
                 return response
-            retryable = response.status_code in {429, 498} or response.status_code >= 500
+            generation_failure = _is_transient_generation_error(response)
+            retryable = (
+                response.status_code in {429, 498}
+                or response.status_code >= 500
+                or generation_failure
+            )
             if retryable and attempt < self.retries:
                 delay = _retry_after(response)
                 if delay is None:
                     delay = 0.5 * (2**attempt)
                 await self._sleep(min(delay, 10.0))
                 continue
-            code = _error_code(response.status_code)
+            code = (
+                ProviderErrorCode.SCHEMA_INCOMPATIBLE
+                if generation_failure
+                else _error_code(response.status_code)
+            )
+            message = (
+                "Groq could not produce the required structured analysis"
+                if generation_failure
+                else f"Groq request failed with HTTP {response.status_code}"
+            )
             raise self._error(
                 code,
-                f"Groq request failed with HTTP {response.status_code}",
+                message,
                 retryable=retryable,
                 retry_after_seconds=_retry_after(response),
             )
@@ -452,6 +470,7 @@ def _output_schema(ticker: str, source_ids: tuple[str, ...]) -> dict[str, Any]:
             "uncertainties": string_array,
             "source_ids": {
                 "type": "array",
+                "minItems": 1,
                 "items": {"type": "string", "enum": list(source_ids)},
             },
         },
@@ -495,6 +514,30 @@ def _json_object(response: Response) -> dict[str, Any]:
             retryable=False,
         )
     return payload
+
+
+def _is_transient_generation_error(response: Response) -> bool:
+    """Recognize Groq's safe structured-generation 400 without retaining its body."""
+
+    if response.status_code != 400:
+        return False
+    try:
+        payload = response.json()
+    except (json.JSONDecodeError, ValueError):
+        return False
+    error = payload.get("error") if isinstance(payload, dict) else None
+    if not isinstance(error, dict):
+        return False
+    if "failed_generation" in error:
+        return True
+    code = str(error.get("code", "")).casefold()
+    if code in {"json_validate_failed", "json_validation_failed"}:
+        return True
+    message = str(error.get("message", "")).casefold()
+    return (
+        "failed to generate json" in message
+        or "generated json does not match" in message
+    )
 
 
 def _request_id(payload: dict[str, Any]) -> str:

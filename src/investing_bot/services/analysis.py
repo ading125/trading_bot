@@ -18,6 +18,7 @@ from investing_bot.db import (
     CandidateRepository,
     CandidateSourceType,
     JobRunRepository,
+    MarketDataRepository,
 )
 from investing_bot.models import (
     AnalysisDecision,
@@ -29,7 +30,7 @@ from investing_bot.providers import ProviderManager
 
 
 logger = logging.getLogger(__name__)
-PROMPT_VERSION = "growth_analysis.v1"
+PROMPT_VERSION = "growth_analysis.v2"
 OUTPUT_SCHEMA_VERSION = "structured_analysis.v1"
 JOB_TYPE_PREFIX = "ai_analysis"
 DEFAULT_MAX_EVIDENCE = 12
@@ -61,6 +62,7 @@ class AnalysisEvidenceBuilder:
         self,
         candidates: CandidateRepository,
         *,
+        market: MarketDataRepository | None = None,
         max_evidence: int = DEFAULT_MAX_EVIDENCE,
         max_evidence_chars: int = DEFAULT_MAX_EVIDENCE_CHARS,
         max_evidence_per_source_type: int = DEFAULT_MAX_EVIDENCE_PER_SOURCE_TYPE,
@@ -73,6 +75,7 @@ class AnalysisEvidenceBuilder:
         if max_evidence_per_source_type < 1:
             raise ValueError("max_evidence_per_source_type must be positive")
         self.candidates = candidates
+        self.market = market
         self.max_evidence = max_evidence
         self.max_evidence_chars = max_evidence_chars
         self.max_evidence_per_source_type = max_evidence_per_source_type
@@ -86,16 +89,18 @@ class AnalysisEvidenceBuilder:
         source_rows = self.candidates.list_evidence(
             symbol=ticker, active_only=True, limit=500
         )
+        momentum = self.market.momentum(ticker) if self.market is not None else None
         selected: list[AnalysisEvidence] = []
         seen_text: set[str] = set()
         source_type_counts: dict[CandidateSourceType, int] = {}
         remaining_chars = self.max_evidence_chars
+        source_limit = self.max_evidence - (1 if momentum is not None else 0)
         for source in sorted(
             source_rows,
             key=lambda item: (item.relevance, item.observed_at, item.evidence_id),
             reverse=True,
         ):
-            if len(selected) == self.max_evidence or remaining_chars <= 0:
+            if len(selected) == source_limit or remaining_chars <= 0:
                 break
             source_type_count = source_type_counts.get(source.source_type, 0)
             if source_type_count >= self.max_evidence_per_source_type:
@@ -124,6 +129,32 @@ class AnalysisEvidenceBuilder:
             )
             source_type_counts[source.source_type] = source_type_count + 1
             remaining_chars -= len(text)
+        if momentum is not None and remaining_chars > 0:
+            momentum_text = (
+                f"Adjusted daily price momentum over {momentum.session_count} sessions "
+                f"from {momentum.start_session.isoformat()} to "
+                f"{momentum.end_session.isoformat()}: close moved from "
+                f"${momentum.start_close:.2f} to ${momentum.end_close:.2f} "
+                f"({momentum.return_pct:+.1f}%), with a "
+                f"{momentum.range_pct:.1f}% close-to-close range. Historical price "
+                "movement is context, not a forecast."
+            )[: min(MAX_EVIDENCE_ITEM_CHARS, remaining_chars)]
+            record_id = (
+                f"{ticker}:adjusted-daily:{momentum.start_session.isoformat()}:"
+                f"{momentum.end_session.isoformat()}"
+            )
+            selected.append(
+                AnalysisEvidence(
+                    source_id=sha256(record_id.encode("utf-8")).hexdigest(),
+                    source_type=CandidateSourceType.MARKET,
+                    source_record_id=record_id,
+                    text=momentum_text,
+                    source_url=None,
+                    event_at=momentum.observed_at,
+                    observed_at=momentum.observed_at,
+                    relevance=0.85,
+                )
+            )
         if not selected:
             raise AnalysisEvidenceError(f"candidate {ticker} has no active evidence")
         evidence_hash = _evidence_hash(
@@ -262,9 +293,9 @@ class GrowthAnalysisService:
     def _validate_output(self, package, output) -> None:
         by_id = {item.source_id: item for item in package.evidence}
         cited = [by_id[source_id] for source_id in output.source_ids]
-        if output.decision is not AnalysisDecision.INSUFFICIENT_EVIDENCE and not cited:
+        if not cited:
             raise AnalysisValidationError(
-                "a published assessment must cite supplied evidence"
+                "an assessment must cite supplied evidence"
             )
         if output.decision is AnalysisDecision.QUALIFY:
             if output.growth_score < self.qualification_growth_score:

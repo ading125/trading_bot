@@ -12,6 +12,7 @@ from investing_bot.db.civictracker import (
 from investing_bot.db.market import (
     MarketDataRepository,
     MarketDataset,
+    MarketMomentum,
     MarketStatus,
     MarketWriteKind,
 )
@@ -52,6 +53,7 @@ __all__ = [
     "MigrationError",
     "MarketDataRepository",
     "MarketDataset",
+    "MarketMomentum",
     "MarketStatus",
     "MarketWriteKind",
     "Candidate",

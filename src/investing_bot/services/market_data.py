@@ -29,6 +29,7 @@ from investing_bot.services.sp500 import SP500UniverseCollector
 
 
 logger = logging.getLogger(__name__)
+DISCOVERY_MOMENTUM_HISTORY_DAYS = 140
 
 
 class MarketDataValidationError(RuntimeError):
@@ -47,6 +48,17 @@ class MarketCollectionSummary(BaseModel):
     revised_records: int
     quarantined: bool
     recorded_at: datetime
+
+
+class MarketDiscoverySummary(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    requested_symbols: int
+    successful_symbols: int
+    failed_symbols: int
+    news_records: int
+    earnings_records: int
+    scanned_at: datetime
 
 
 class MarketDataValidator:
@@ -257,6 +269,74 @@ class MarketDataCollector:
             "earnings": self.repository.store_earnings(earnings.items),
         }
 
+    async def collect_discovery_events(
+        self,
+        *,
+        symbols: tuple[str, ...],
+        news_limit_per_symbol: int,
+    ) -> MarketDiscoverySummary:
+        """Collect only discovery evidence for a bounded constituent batch."""
+
+        scanned_at = self._now()
+        if not symbols:
+            return MarketDiscoverySummary(
+                requested_symbols=0,
+                successful_symbols=0,
+                failed_symbols=0,
+                news_records=0,
+                earnings_records=0,
+                scanned_at=scanned_at,
+            )
+        run_id = str(uuid4())
+        news_provider = await self.provider_manager.pin(
+            ProviderCapability.NEWS, run_id=run_id
+        )
+        earnings_provider = await self.provider_manager.pin(
+            ProviderCapability.EARNINGS, run_id=run_id
+        )
+        successful = failed = news_records = earnings_records = 0
+        for symbol in symbols:
+            symbol_news = symbol_earnings = 0
+            succeeded = False
+            try:
+                news = await news_provider.fetch_news(
+                    NewsRequest(
+                        symbols=(symbol,),
+                        limit_per_symbol=news_limit_per_symbol,
+                    )
+                )
+                earnings = await earnings_provider.fetch_earnings(
+                    EarningsRequest(symbols=(symbol,))
+                )
+                symbol_news = self.repository.store_news(news.items)
+                symbol_earnings = self.repository.store_earnings(earnings.items)
+                news_records += symbol_news
+                earnings_records += symbol_earnings
+                successful += 1
+                succeeded = True
+            except Exception:
+                failed += 1
+                logger.exception(
+                    "constituent discovery scan failed",
+                    extra={"symbol": symbol},
+                )
+            finally:
+                self.repository.record_discovery_scan(
+                    symbol=symbol,
+                    scanned_at=self._now(),
+                    succeeded=succeeded,
+                    news_records=symbol_news,
+                    earnings_records=symbol_earnings,
+                )
+        return MarketDiscoverySummary(
+            requested_symbols=len(symbols),
+            successful_symbols=successful,
+            failed_symbols=failed,
+            news_records=news_records,
+            earnings_records=earnings_records,
+            scanned_at=scanned_at,
+        )
+
 
 class MarketPollingService:
     """Bounded opt-in polling for the configured research watchlist."""
@@ -270,6 +350,9 @@ class MarketPollingService:
         daily_history_days: int,
         intraday_history_days: int,
         universe_collector: SP500UniverseCollector | None = None,
+        discovery_enabled: bool = True,
+        discovery_batch_size: int = 10,
+        discovery_news_limit: int = 10,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self.collector = collector
@@ -278,6 +361,9 @@ class MarketPollingService:
         self.daily_history_days = daily_history_days
         self.intraday_history_days = intraday_history_days
         self.universe_collector = universe_collector
+        self.discovery_enabled = discovery_enabled
+        self.discovery_batch_size = discovery_batch_size
+        self.discovery_news_limit = discovery_news_limit
         self._universe_collected = False
         self._now = now
         self._task: asyncio.Task[None] | None = None
@@ -311,6 +397,12 @@ class MarketPollingService:
             except Exception:
                 logger.exception("S&P 500 universe collection failed")
         end = self._now()
+        discovery_symbols: tuple[str, ...] = ()
+        if self.discovery_enabled:
+            discovery_symbols = self.collector.repository.next_discovery_symbols(
+                limit=self.discovery_batch_size,
+                exclude=("SPY", *self.symbols),
+            )
         daily = await self.collector.collect_bars(
             symbols=self.symbols,
             start=end - timedelta(days=self.daily_history_days),
@@ -326,12 +418,40 @@ class MarketPollingService:
             adjustment=PriceAdjustment.ADJUSTED,
         )
         event_counts = await self.collector.collect_events(symbols=self.symbols)
+        discovery = None
+        discovery_momentum = None
+        if discovery_symbols:
+            try:
+                discovery_momentum = await self.collector.collect_bars(
+                    symbols=discovery_symbols,
+                    start=end - timedelta(days=DISCOVERY_MOMENTUM_HISTORY_DAYS),
+                    end=end,
+                    interval=BarInterval.DAY_1,
+                    adjustment=PriceAdjustment.ADJUSTED,
+                )
+            except Exception:
+                logger.exception(
+                    "constituent momentum collection failed; continuing discovery"
+                )
+        if self.discovery_enabled:
+            discovery = await self.collector.collect_discovery_events(
+                symbols=discovery_symbols,
+                news_limit_per_symbol=self.discovery_news_limit,
+            )
         logger.info(
             "market collection completed",
             extra={
                 "daily": daily.model_dump(mode="json"),
                 "intraday": intraday.model_dump(mode="json"),
                 "events": event_counts,
+                "discovery_momentum": (
+                    discovery_momentum.model_dump(mode="json")
+                    if discovery_momentum is not None
+                    else None
+                ),
+                "discovery": (
+                    discovery.model_dump(mode="json") if discovery is not None else None
+                ),
             },
         )
 

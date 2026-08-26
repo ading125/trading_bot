@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from collections import Counter
 from copy import deepcopy
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -14,8 +15,16 @@ from investing_bot.db import (
     CandidateSourceType,
     Database,
     JobRunRepository,
+    MarketDataRepository,
 )
-from investing_bot.models import AnalysisDecision, ProviderCapability
+from investing_bot.models import (
+    AnalysisDecision,
+    BarInterval,
+    CanonicalMetadata,
+    MarketBar,
+    PriceAdjustment,
+    ProviderCapability,
+)
 from investing_bot.providers import (
     CapabilitySelection,
     CredentialPresenceStore,
@@ -53,7 +62,7 @@ def setup_analysis(
 ]:
     database = Database(tmp_path / "investing_bot.duckdb")
     database.connect()
-    assert database.migrate() == 9
+    assert database.migrate() == 11
     candidates = CandidateRepository(database)
     candidates.store_evidence(
         CandidateEvidence(
@@ -97,8 +106,11 @@ def setup_analysis(
         credentials=CredentialPresenceStore(),
     )
     analyses = AnalysisRepository(database)
+    market = MarketDataRepository(database, dataset_root=tmp_path / "market")
     service = GrowthAnalysisService(
-        evidence_builder=AnalysisEvidenceBuilder(candidates, now=lambda: NOW),
+        evidence_builder=AnalysisEvidenceBuilder(
+            candidates, market=market, now=lambda: NOW
+        ),
         repository=analyses,
         provider_manager=manager,
         jobs=JobRunRepository(database),
@@ -132,6 +144,30 @@ async def test_analysis_is_source_bounded_persisted_and_cached(tmp_path: Path) -
     assert second.cached is True
     assert second.assessment.assessment_id == first.assessment.assessment_id
     assert repository.count() == 1
+    database.close()
+
+
+def test_evidence_package_includes_recent_market_momentum(tmp_path: Path) -> None:
+    database, _, repository, service, _ = setup_analysis(tmp_path)
+    market = service.evidence_builder.market
+    assert market is not None
+    market.store_bars(
+        (
+            _daily_bar(date(2026, 5, 14), 100.0),
+            _daily_bar(date(2026, 8, 14), 125.0),
+        )
+    )
+
+    package = service.evidence_builder.build("CVX")
+    momentum = next(
+        item
+        for item in package.evidence
+        if item.source_type is CandidateSourceType.MARKET
+    )
+
+    assert "+25.0%" in momentum.text
+    assert "Historical price movement is context, not a forecast" in momentum.text
+    assert repository.get_package(package.evidence_hash) is None
     database.close()
 
 
@@ -248,3 +284,34 @@ async def test_political_evidence_alone_cannot_publish_qualify(tmp_path: Path) -
 
     assert repository.count() == 0
     database.close()
+
+
+def _daily_bar(session: date, close: float) -> MarketBar:
+    bar_start = datetime.combine(session, time(13, 30), UTC)
+    bar_end = datetime.combine(session, time(20), UTC)
+    identity = f"CVX:{session}:{close}"
+    return MarketBar(
+        symbol="CVX",
+        interval=BarInterval.DAY_1,
+        bar_start=bar_start,
+        bar_end=bar_end,
+        session_date=session,
+        exchange_timezone="America/New_York",
+        open=close,
+        high=close + 1,
+        low=close - 1,
+        close=close,
+        volume=1_000_000,
+        adjustment=PriceAdjustment.ADJUSTED,
+        metadata=CanonicalMetadata(
+            provider_id="fixture_recorded",
+            provider_record_id=identity,
+            event_at=bar_end,
+            known_available_at=bar_end,
+            retrieved_at=bar_end,
+            raw_payload_hash=sha256(identity.encode()).hexdigest(),
+            schema_version="market_bar.v1",
+            adapter_version="1.0.0",
+            dataset_lineage="fixture_recorded:adjusted:daily",
+        ),
+    )

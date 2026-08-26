@@ -420,7 +420,7 @@ class RecordedFixtureProvider:
         mapped_source_ids = [
             item for item in raw["source_ids"] if item in allowed_ids
         ]
-        if raw["source_ids"] and not mapped_source_ids and request.evidence:
+        if not mapped_source_ids and request.evidence:
             # The packaged fixture names its recorded source, while application
             # evidence uses durable hashed IDs. Publish only an ID that was
             # actually supplied in this request.

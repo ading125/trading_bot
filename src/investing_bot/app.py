@@ -167,7 +167,9 @@ def create_app(
             )
             app.state.candidate_service = candidate_service
             analysis_service = GrowthAnalysisService(
-                evidence_builder=AnalysisEvidenceBuilder(candidate_repository),
+                evidence_builder=AnalysisEvidenceBuilder(
+                    candidate_repository, market=market_repository
+                ),
                 repository=analysis_repository,
                 provider_manager=provider_manager,
                 jobs=repository,
@@ -195,6 +197,9 @@ def create_app(
                 daily_history_days=resolved_settings.market_daily_history_days,
                 intraday_history_days=resolved_settings.market_intraday_history_days,
                 universe_collector=sp500_collector,
+                discovery_enabled=resolved_settings.market_discovery_enabled,
+                discovery_batch_size=resolved_settings.market_discovery_batch_size,
+                discovery_news_limit=resolved_settings.market_discovery_news_limit,
             )
             outcome_service = OutcomeTrackingService(
                 analyses=analysis_repository,

@@ -16,6 +16,7 @@ class CandidateSourceType(StrEnum):
     CIVICTRACKER = "civictracker"
     NEWS = "news"
     EARNINGS = "earnings"
+    MARKET = "market"
 
 
 class ResolutionStatus(StrEnum):
@@ -118,12 +119,7 @@ class CandidateRepository:
             connection.executemany(
                 """
                 INSERT INTO company_aliases VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT DO UPDATE SET
-                    alias=excluded.alias,
-                    company_name=excluded.company_name,
-                    source=excluded.source,
-                    verified_at=excluded.verified_at,
-                    active=excluded.active
+                ON CONFLICT DO NOTHING
                 """,
                 parameters,
             )
@@ -383,13 +379,58 @@ class CandidateRepository:
         return 0 if row is None else int(row[0])
 
     def list_analysis_symbols(self, *, limit: int = 5) -> tuple[str, ...]:
-        """Rank candidates with current research evidence beyond universe membership."""
+        """Blend fresh research evidence with recent adjusted-price movement."""
 
         if limit < 1:
             raise ValueError("analysis candidate limit must be positive")
         rows = self._database.fetchall(
             """
+            WITH selected_provider AS (
+                SELECT symbol, provider_id
+                FROM market_bars
+                WHERE interval='1d' AND adjustment='adjusted'
+                GROUP BY symbol, provider_id
+                QUALIFY ROW_NUMBER() OVER (
+                    PARTITION BY symbol
+                    ORDER BY MAX(bar_end) DESC, COUNT(*) DESC, provider_id
+                ) = 1
+            ), deduplicated_bars AS (
+                SELECT bar.symbol, bar.session_date, bar.close
+                FROM market_bars bar
+                JOIN selected_provider selected
+                  ON selected.symbol=bar.symbol
+                 AND selected.provider_id=bar.provider_id
+                WHERE bar.interval='1d' AND bar.adjustment='adjusted'
+                QUALIFY ROW_NUMBER() OVER (
+                    PARTITION BY bar.symbol, bar.session_date
+                    ORDER BY bar.retrieved_at DESC, bar.bar_end DESC
+                ) = 1
+            ), recent_bars AS (
+                SELECT *, ROW_NUMBER() OVER (
+                    PARTITION BY symbol ORDER BY session_date DESC
+                ) AS recency_rank
+                FROM deduplicated_bars
+            ), momentum AS (
+                SELECT symbol, COUNT(*) AS session_count,
+                       ABS((ARG_MAX(close, session_date) /
+                            NULLIF(ARG_MIN(close, session_date), 0)) - 1) * 100
+                           AS absolute_return_pct,
+                       ((MAX(close) / NULLIF(MIN(close), 0)) - 1) * 100
+                           AS range_pct
+                FROM recent_bars
+                WHERE recency_rank <= 63
+                GROUP BY symbol
+            ), evidence_rank AS (
             SELECT candidate.symbol
+                 , LEAST(SUM(
+                       CASE
+                           WHEN evidence.source_type = 'news'
+                            AND evidence.event_at >= CURRENT_TIMESTAMP - INTERVAL '3 days'
+                           THEN 8 ELSE 0
+                       END
+                   ), 24)
+                   + COUNT(DISTINCT evidence.source_type) * 8
+                   + AVG(evidence.relevance) * 12 AS evidence_score
             FROM candidates candidate
             JOIN candidate_evidence evidence
               ON evidence.symbol=candidate.symbol
@@ -398,16 +439,28 @@ class CandidateRepository:
              AND evidence.source_type IN ('civictracker', 'news', 'earnings')
             WHERE candidate.active=true
               AND candidate.expires_at > CURRENT_TIMESTAMP
+              AND candidate.symbol <> 'SPY'
               AND (
                   candidate.company_name <> candidate.symbol
                   OR evidence.source_type = 'civictracker'
               )
             GROUP BY candidate.symbol
+            )
+            SELECT ranked.symbol
+            FROM evidence_rank ranked
+            LEFT JOIN momentum ON momentum.symbol=ranked.symbol
             ORDER BY
-                COUNT(DISTINCT evidence.source_type) DESC,
-                MAX(evidence.observed_at) DESC,
-                SUM(evidence.relevance) DESC,
-                candidate.symbol
+                ranked.evidence_score
+                + CASE
+                    WHEN momentum.session_count >= 20 THEN LEAST(
+                        40,
+                        momentum.absolute_return_pct * 1.5
+                        + momentum.range_pct * 0.5
+                    )
+                    ELSE 0
+                  END DESC,
+                COALESCE(momentum.absolute_return_pct, 0) DESC,
+                ranked.symbol
             LIMIT ?
             """,
             [limit],
@@ -567,6 +620,7 @@ class CandidateRepository:
             SELECT provider_id || ':' || symbol || ':' || source_record_id,
                    symbol, headline, summary, url, published_at, retrieved_at
             FROM market_news
+            WHERE published_at >= CURRENT_TIMESTAMP - INTERVAL '14 days'
             """
         ):
             rows.append(
@@ -585,18 +639,29 @@ class CandidateRepository:
             """
             SELECT provider_id || ':' || symbol || ':' || source_record_id,
                    symbol, fiscal_period, report_date, known_available_at,
-                   retrieved_at
+                   retrieved_at, reported_eps, estimated_eps
             FROM market_earnings
+            WHERE report_date BETWEEN CURRENT_DATE - INTERVAL '30 days'
+                                  AND CURRENT_DATE + INTERVAL '90 days'
             """
         ):
             event_at = datetime.combine(row[3], datetime.min.time(), tzinfo=row[4].tzinfo)
+            eps_details = []
+            if row[6] is not None:
+                eps_details.append(f"reported EPS {float(row[6]):g}")
+            if row[7] is not None:
+                eps_details.append(f"estimated EPS {float(row[7]):g}")
+            suffix = f"; {', '.join(eps_details)}" if eps_details else ""
             rows.append(
                 {
                     "source_type": CandidateSourceType.EARNINGS,
                     "source_record_id": row[0],
                     "symbol": row[1],
                     "company_name": row[1],
-                    "text": f"{row[1]} earnings for {row[2]}",
+                    "text": (
+                        f"{row[1]} earnings for {row[2]} on "
+                        f"{row[3].isoformat()}{suffix}"
+                    ),
                     "url": None,
                     "event_at": min(event_at, row[4]),
                     "observed_at": row[5],

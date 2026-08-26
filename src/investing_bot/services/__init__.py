@@ -13,6 +13,7 @@ from investing_bot.services.civictracker_collector import (
 )
 from investing_bot.services.market_data import (
     MarketCollectionSummary,
+    MarketDiscoverySummary,
     MarketDataCollector,
     MarketPollingService,
     MarketDataValidationError,
@@ -99,6 +100,7 @@ __all__ = [
     "OrganizationSuggestion",
     "SuggestedEntityType",
     "MarketCollectionSummary",
+    "MarketDiscoverySummary",
     "MarketDataCollector",
     "MarketPollingService",
     "MarketDataValidationError",

@@ -122,7 +122,9 @@ and history persistence, token usage, prospective outcome slots, APIs,
 background scheduling, and dashboard presentation are implemented. The
 authenticated encrypted vault, terminal-only credential entry, explicit unlock,
 provider-store injection, sanitized status reporting, and recorded-provider
-fallback are also implemented.
+fallback are also implemented. Candidate ranking now blends fresh source
+evidence with recent adjusted-price movement, and the compact dashboard
+leaderboard ranks assessments by growth score with one selectable detail card.
 
 Deliverables:
 

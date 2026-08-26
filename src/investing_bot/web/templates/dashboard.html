@@ -174,25 +174,70 @@
       </dialog>
 
       <section class="analysis-dashboard" aria-labelledby="analysis-heading">
-        <p class="eyebrow">Growth research</p>
-        <h3 id="analysis-heading">Latest AI assessments</h3>
-        <p class="detail section-intro">
-          These assessments qualify research evidence only. Only a current
-          <strong>qualify</strong> decision may enter deterministic setup research.
-        </p>
-        <div class="analysis-list">
-          {% for assessment in analyses %}
-          <article class="analysis-card">
+        <div class="analysis-title-row">
+          <div>
+            <p class="eyebrow">Growth research</p>
+            <h3 id="analysis-heading">Growth score leaderboard</h3>
+          </div>
+          <p class="detail section-intro">
+            Ranked AI research with recent adjusted-price movement as context.
+            Select a ticker to inspect its evidence-backed assessment.
+          </p>
+        </div>
+        {% if analysis_views %}
+        <div class="analysis-workspace">
+          <div class="analysis-leaderboard" role="tablist" aria-label="Ranked stock assessments">
+            <div class="leaderboard-labels" aria-hidden="true">
+              <span>Rank</span><span>Company</span><span>3M move</span><span>Score</span>
+            </div>
+            {% for item in analysis_views %}
+            {% set assessment = item.assessment %}
+            <button
+              type="button"
+              class="analysis-rank-row{% if loop.first %} is-active{% endif %}"
+              id="analysis-tab-{{ loop.index }}"
+              role="tab"
+              aria-selected="{{ 'true' if loop.first else 'false' }}"
+              aria-controls="analysis-detail-{{ loop.index }}"
+              tabindex="{{ '0' if loop.first else '-1' }}"
+              data-analysis-target="analysis-detail-{{ loop.index }}"
+            >
+              <span class="rank-number">{{ item.rank }}</span>
+              <span class="rank-company">
+                <strong>{{ assessment.ticker }}</strong>
+                <small>{{ assessment.company_name }}</small>
+              </span>
+              {% if item.momentum %}
+              <span class="rank-movement {{ 'movement-positive' if item.momentum.return_pct >= 0 else 'movement-negative' }}">
+                {{ '%+.1f' | format(item.momentum.return_pct) }}%
+              </span>
+              {% else %}
+              <span class="rank-movement movement-unavailable">—</span>
+              {% endif %}
+              <span class="rank-score">{{ assessment.growth_score }}</span>
+            </button>
+            {% endfor %}
+          </div>
+          <div class="analysis-preview">
+          {% for item in analysis_views %}
+          {% set assessment = item.assessment %}
+          <article
+            class="analysis-card"
+            id="analysis-detail-{{ loop.index }}"
+            role="tabpanel"
+            aria-labelledby="analysis-tab-{{ loop.index }}"
+            {% if not loop.first %}hidden{% endif %}
+          >
             <header class="analysis-header">
               <div>
-                <p class="analysis-symbol">{{ assessment.ticker }}</p>
+                <p class="analysis-symbol">#{{ item.rank }} · {{ assessment.ticker }}</p>
                 <h4>{{ assessment.company_name }}</h4>
               </div>
               <span class="analysis-decision decision-{{ assessment.decision.value }}">
                 {{ assessment.decision.value | replace('_', ' ') }}
               </span>
             </header>
-            <div class="score-grid">
+            <div class="score-grid score-grid-four">
               <div>
                 <span>Growth score</span>
                 <strong>{{ assessment.growth_score }}/100</strong>
@@ -205,30 +250,41 @@
                 <span>Policy relevance</span>
                 <strong>{{ assessment.policy_relevance.value | title }}</strong>
               </div>
+              <div>
+                <span>3-month move</span>
+                {% if item.momentum %}
+                <strong class="{{ 'movement-positive' if item.momentum.return_pct >= 0 else 'movement-negative' }}">
+                  {{ '%+.1f' | format(item.momentum.return_pct) }}%
+                </strong>
+                <small>{{ item.momentum.session_count }} sessions · {{ '%.1f' | format(item.momentum.range_pct) }}% range</small>
+                {% else %}
+                <strong>Pending</strong><small>Refresh Market to collect history</small>
+                {% endif %}
+              </div>
             </div>
             <div class="analysis-copy">
               <div>
                 <h5>Bullish thesis</h5>
-                <p>{{ assessment.bullish_thesis or 'No supported bullish thesis.' }}</p>
+                <p>{{ (assessment.bullish_thesis or 'No supported bullish thesis.') | humanize_analysis_text }}</p>
               </div>
               <div>
                 <h5>Bear case</h5>
-                <p>{{ assessment.bearish_case or 'No bear case was supplied.' }}</p>
+                <p>{{ (assessment.bearish_case or 'No bear case was supplied.') | humanize_analysis_text }}</p>
               </div>
             </div>
             <div class="analysis-copy">
               <div>
                 <h5>Catalysts</h5>
                 <ul>
-                  {% for item in assessment.catalysts %}<li>{{ item }}</li>
+                  {% for item in assessment.catalysts %}<li>{{ item | humanize_analysis_text }}</li>
                   {% else %}<li>No supported catalysts.</li>{% endfor %}
                 </ul>
               </div>
               <div>
                 <h5>Risks and uncertainty</h5>
                 <ul>
-                  {% for item in assessment.risks %}<li>{{ item }}</li>{% endfor %}
-                  {% for item in assessment.uncertainties %}<li>{{ item }}</li>{% endfor %}
+                  {% for item in assessment.risks %}<li>{{ item | humanize_analysis_text }}</li>{% endfor %}
+                  {% for item in assessment.uncertainties %}<li>{{ item | humanize_analysis_text }}</li>{% endfor %}
                   {% if not assessment.risks and not assessment.uncertainties %}
                   <li>No risks or uncertainties were supplied.</li>
                   {% endif %}
@@ -241,17 +297,23 @@
               {% if assessment.input_tokens is not none %}
               <span>{{ assessment.input_tokens }} in / {{ assessment.output_tokens }} out</span>
               {% endif %}
-              <a href="/api/v1/analyses/{{ assessment.ticker }}/evidence">View cited evidence</a>
+              <span>
+                {{ analysis_evidence_counts.get(assessment.evidence_hash, 0) }} supplied ·
+                {{ assessment.source_ids | length }} cited
+              </span>
+              <a href="/api/v1/analyses/{{ assessment.ticker }}/evidence">View evidence package</a>
             </div>
           </article>
-          {% else %}
+          {% endfor %}
+          </div>
+        </div>
+        {% else %}
           <p class="detail empty-state">
             No AI assessment has been recorded yet. Analysis automatically
-            selects a bounded shortlist from current news, earnings, and
-            CivicTracker evidence after candidate refresh.
+            ranks a bounded shortlist using current news, earnings,
+            CivicTracker evidence, and recent adjusted-price movement.
           </p>
-          {% endfor %}
-        </div>
+        {% endif %}
       </section>
       <section class="provider-section" aria-labelledby="strategy-heading">
         <p class="eyebrow">Deterministic setup research</p>
@@ -349,12 +411,12 @@
             <div class="alert-research">
               <div>
                 <h5>AI evidence thesis</h5>
-                <p>{{ alert.assessment.bullish_thesis }}</p>
+                <p>{{ alert.assessment.bullish_thesis | humanize_analysis_text }}</p>
               </div>
               <div>
                 <h5>Research risks</h5>
                 <ul>
-                  {% for risk in alert.assessment.risks %}<li>{{ risk }}</li>
+                  {% for risk in alert.assessment.risks %}<li>{{ risk | humanize_analysis_text }}</li>
                   {% else %}<li>No model-supplied risks.</li>{% endfor %}
                 </ul>
               </div>
@@ -483,17 +545,24 @@
           <span class="detail">Manual tasks are locked, rate-protected, and recorded.</span>
         </div>
         <div class="operation-controls" aria-label="Manual refresh controls">
-          {% for action, label in [
-            ('sources', 'Refresh sources'),
-            ('market', 'Refresh market'),
-            ('candidates', 'Rebuild candidates'),
-            ('analysis', 'Analyze top 5'),
-            ('strategies', 'Evaluate setups'),
-            ('outcomes', 'Reconcile outcomes')
+          {% for action, label, description in [
+            ('sources', 'Refresh sources', 'Collect the latest CivicTracker posts and update the source archive.'),
+            ('market', 'Refresh market', 'Refresh prices, news, earnings, and the next rotating batch of S&P 500 companies.'),
+            ('candidates', 'Rebuild candidates', 'Rebuild the verified company registry from current source evidence.'),
+            ('analysis', 'Analyze ranked stocks', 'Send up to 10 highest-ranked companies to the AI and save new assessments.'),
+            ('strategies', 'Evaluate setups', 'Run deterministic technical setup checks for qualified companies.'),
+            ('outcomes', 'Reconcile outcomes', 'Record later 5-, 10-, and 20-session returns for past AI assessments.')
           ] %}
           <form method="post" action="/actions/refresh/{{ action }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit"{% if action == 'analysis' %} class="operation-primary"{% endif %}>{{ label }}</button>
+            <button
+              type="submit"
+              aria-describedby="operation-help-{{ action }}"
+              {% if action == 'analysis' %}class="operation-primary"{% endif %}
+            >{{ label }}</button>
+            <span class="operation-tooltip" id="operation-help-{{ action }}" role="tooltip">
+              {{ description }}
+            </span>
           </form>
           {% endfor %}
         </div>

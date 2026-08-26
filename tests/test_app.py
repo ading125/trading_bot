@@ -30,7 +30,7 @@ from investing_bot.providers.contracts import (
     ConnectionTestResult,
     ProviderHealthState,
 )
-from investing_bot.web.routes import _analysis_mode_view
+from investing_bot.web.routes import _analysis_mode_view, _humanize_analysis_text
 
 
 @pytest.mark.anyio
@@ -112,7 +112,7 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
     assert health.json()["status"] == "ok"
     assert ready.status_code == 200
     assert ready.json()["status"] == "ready"
-    assert ready.json()["migration_version"] == 9
+    assert ready.json()["migration_version"] == 11
     assert providers.status_code == 200
     assert len(providers.json()["providers"]) == 6
     assert providers.json()["selections"]["daily_bars"]["primary"]["provider_id"] == (
@@ -175,7 +175,7 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
     }
     assert operation_runs.json() == {"items": []}
     assert diagnostics.status_code == 200
-    assert diagnostics.json()["migration_version"] == 9
+    assert diagnostics.json()["migration_version"] == 11
     assert str(tmp_path) not in diagnostics.text
     assert "cred_groq" not in diagnostics.text
     assert outcome_refresh.status_code == 200
@@ -194,7 +194,11 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
     assert dashboard.headers["cache-control"] == "no-store"
     assert 'class="hero"' not in dashboard.text
     assert "Run workspace tasks" in dashboard.text
-    assert "Analyze top 5" in dashboard.text
+    assert "Analyze ranked stocks" in dashboard.text
+    assert 'role="tooltip"' in dashboard.text
+    assert "Refresh prices, news, earnings" in dashboard.text
+    assert "Send up to 10 highest-ranked companies" in dashboard.text
+    assert "Growth score leaderboard" in dashboard.text
     assert 'id="system-drawer"' in dashboard.text
     assert 'id="candidate-drawer"' in dashboard.text
     assert 'id="source-drawer"' in dashboard.text
@@ -202,7 +206,7 @@ async def test_health_readiness_and_dashboard(tmp_path: Path) -> None:
     assert "Capability contracts" in dashboard.text
     assert "Market bars" in dashboard.text
     assert "Current verified companies" in dashboard.text
-    assert "Latest AI assessments" in dashboard.text
+    assert "Growth score leaderboard" in dashboard.text
     assert "Technical strategy hypotheses" in dashboard.text
     assert "These baselines are implementation hypotheses" in dashboard.text
     assert "Walk-forward backtest reports" in dashboard.text
@@ -267,6 +271,7 @@ async def test_manual_analysis_uses_automatic_candidate_queue(tmp_path: Path) ->
                 data={"csrf_token": app.state.csrf_token},
             )
             analyses = await client.get("/api/v1/analyses")
+            dashboard = await client.get("/")
 
     assert response.status_code == 303
     assert response.headers["location"] == (
@@ -274,6 +279,10 @@ async def test_manual_analysis_uses_automatic_candidate_queue(tmp_path: Path) ->
     )
     assert analyses.json()["count"] == 1
     assert analyses.json()["items"][0]["ticker"] == "AAPL"
+    assert len(analyses.json()["items"][0]["source_ids"]) == 1
+    assert 'class="analysis-rank-row is-active"' in dashboard.text
+    assert 'data-analysis-target="analysis-detail-1"' in dashboard.text
+    assert "Apple Inc." in dashboard.text
 
 
 def test_analysis_mode_reports_live_hosted_provider() -> None:
@@ -302,6 +311,14 @@ def test_analysis_mode_reports_live_hosted_provider() -> None:
         ),
         "provider": "groq · openai/gpt-oss-120b",
     }
+
+
+def test_inline_source_hashes_are_hidden_from_dashboard_copy() -> None:
+    source_id = "d37220fc4d98c494bec99b21fdabb5e984117c4c7b2b1fdb573fa40177ece19e"
+
+    assert _humanize_analysis_text(
+        f"Microsoft is accelerating its AI strategy (source {source_id})."
+    ) == "Microsoft is accelerating its AI strategy."
 
 
 @pytest.mark.anyio

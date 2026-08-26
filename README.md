@@ -103,11 +103,15 @@ count, and enabled state are non-secret `INVESTING_BOT_CIVICTRACKER_*` settings.
 Market collection uses live Yahoo Finance providers outside test mode but is
 opt-in by default. To enable market-calendar-aware collection for the configured
 seed watchlist, set `INVESTING_BOT_MARKET_COLLECTION_ENABLED=true` and restart
-the service. Related news, earnings, and bar tasks due within five minutes are
+the service. SPY remains a benchmark rather than an analysis candidate. Each
+market refresh also scans a durable, bounded rotation of S&P 500 constituent
+companies for fresh news, upcoming/recent earnings, and roughly three months of
+adjusted daily price history; empty scans are recorded
+so the rotation continues across restarts. Related news, earnings, and bar tasks due within five minutes are
 coalesced into one bounded provider refresh. Canonical bars are written below
 `data/market`, raw Yahoo payloads below
 `data/cache/yahoo`, and the dashboard/API expose dataset and quarantine counts.
-The watchlist and polling/history bounds use the non-secret
+The watchlist, discovery batch, news limit, and polling/history bounds use the non-secret
 `INVESTING_BOT_MARKET_*` settings in [.env.example](.env.example).
 
 Candidate refresh runs every 15 minutes by default and uses stored source data.
@@ -118,14 +122,15 @@ snapshot, CivicTracker mentions, news, and earnings. View them at
 remain visible at `/api/v1/resolutions` but cannot enter the candidate list.
 
 Milestone 6 automatically ranks a bounded shortlist from current CivicTracker,
-news, and earnings evidence, then analyzes up to five companies with Groq's
+news, earnings, and recent adjusted-price momentum, then analyzes up to ten companies with Groq's
 fixed `openai/gpt-oss-120b` model whenever the vault is explicitly unlocked.
 S&P 500 membership alone cannot enter the analysis queue. An explicit
 `INVESTING_BOT_ANALYSIS_SEED_SYMBOLS` list remains available as an optional
 override. The service stores immutable evidence packages,
 provider-version-aware cache keys, assessment history, and prospective 5/10/20
-session outcome slots. The dashboard shows the latest thesis, scores, catalysts,
-bear case, risks, uncertainty, and evidence link. Read-only records are also
+session outcome slots. The dashboard ranks the latest records by AI growth score
+in a compact leaderboard; hovering, focusing, or clicking a ticker opens its
+thesis, catalysts, bear case, risks, momentum context, and evidence link. Read-only records are also
 available at `/api/v1/analyses`, `/api/v1/analyses/{symbol}`, and
 `/api/v1/analyses/{symbol}/evidence`. Every assessment records the actual
 provider, model, adapter, request ID, configuration, and input/output token
@@ -186,11 +191,11 @@ a clean local or named-volume mount explicit. The optional Windows/WSL launcher
 is `start-investing-bot.ps1`; pass `-UnlockCredentials` when live Groq analysis
 is needed.
 
-Verification: 144 offline tests cover provider contracts, CivicTracker
+Verification: 152 offline tests cover provider contracts, CivicTracker
 collection, Yahoo normalization, incremental market coverage,
 validation/quarantine, revision history, actual Parquet publication, deterministic
 company resolution, ambiguity/manual-review behavior, source provenance, and
-candidate expiry, source-bounded analysis validation, caching, history, and
+candidate expiry, momentum-aware discovery ranking and evidence, source-bounded analysis validation, caching, history, and
 political-only qualification rejection, credential encryption, wrong-secret and
 tamper rejection, locked-state isolation, unsafe-permission rejection, strict
 Groq request/response handling, token lineage, sanitized provider failures,

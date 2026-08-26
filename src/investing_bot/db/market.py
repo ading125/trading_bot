@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from uuid import uuid4
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from investing_bot.db.database import Database
 from investing_bot.models import (
@@ -58,6 +58,22 @@ class MarketStatus(BaseModel):
     universe_members: int
     news_count: int
     earnings_count: int
+
+
+class MarketMomentum(BaseModel):
+    """A compact adjusted-price snapshot for discovery and display."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    symbol: str
+    session_count: int = Field(ge=2)
+    start_session: date
+    end_session: date
+    start_close: float = Field(gt=0)
+    end_close: float = Field(gt=0)
+    return_pct: float
+    range_pct: float = Field(ge=0)
+    observed_at: AwareDatetime
 
 
 class MarketDataRepository:
@@ -443,6 +459,75 @@ class MarketDataRepository:
                     ],
                 )
 
+    def next_discovery_symbols(
+        self,
+        *,
+        limit: int,
+        exclude: tuple[str, ...] = (),
+    ) -> tuple[str, ...]:
+        """Return the least-recently scanned members of the latest universe."""
+
+        if limit < 1:
+            raise ValueError("discovery symbol limit must be positive")
+        excluded = tuple(dict.fromkeys(symbol.upper() for symbol in exclude))
+        exclusion = ""
+        parameters: list[object] = []
+        if excluded:
+            placeholders = ",".join("?" for _ in excluded)
+            exclusion = f"AND member.symbol NOT IN ({placeholders})"
+            parameters.extend(excluded)
+        parameters.append(limit)
+        rows = self._database.fetchall(
+            f"""
+            WITH latest_snapshot AS (
+                SELECT snapshot_id
+                FROM universe_snapshots
+                ORDER BY captured_at DESC, snapshot_id DESC
+                LIMIT 1
+            )
+            SELECT member.symbol
+            FROM universe_members member
+            JOIN latest_snapshot latest
+              ON latest.snapshot_id=member.snapshot_id
+            LEFT JOIN market_discovery_scans scan
+              ON scan.symbol=member.symbol
+            WHERE true {exclusion}
+            ORDER BY scan.last_scanned_at NULLS FIRST, member.symbol
+            LIMIT ?
+            """,
+            parameters,
+        )
+        return tuple(str(row[0]) for row in rows)
+
+    def record_discovery_scan(
+        self,
+        *,
+        symbol: str,
+        scanned_at: datetime,
+        succeeded: bool,
+        news_records: int,
+        earnings_records: int,
+    ) -> None:
+        """Advance one constituent's durable scan position, including empty scans."""
+
+        self._database.execute(
+            """
+            INSERT INTO market_discovery_scans VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (symbol) DO UPDATE SET
+                last_scanned_at=excluded.last_scanned_at,
+                succeeded=excluded.succeeded,
+                news_records=excluded.news_records,
+                earnings_records=excluded.earnings_records
+            """,
+            [
+                symbol.upper(),
+                scanned_at,
+                succeeded,
+                news_records,
+                earnings_records,
+            ],
+        )
+
     def status(self) -> MarketStatus:
         row = self._database.fetchone(
             """
@@ -493,6 +578,68 @@ class MarketDataRepository:
             "provider_id", "repaired",
         )
         return [dict(zip(fields, row, strict=True)) for row in rows]
+
+    def momentum(
+        self, symbol: str, *, lookback_sessions: int = 63
+    ) -> MarketMomentum | None:
+        """Summarize roughly three months of the freshest adjusted daily bars."""
+
+        if lookback_sessions < 2:
+            raise ValueError("momentum lookback must contain at least two sessions")
+        provider = self._database.fetchone(
+            """
+            SELECT provider_id
+            FROM market_bars
+            WHERE symbol=? AND interval=? AND adjustment=?
+            GROUP BY provider_id
+            ORDER BY MAX(bar_end) DESC, COUNT(*) DESC, provider_id
+            LIMIT 1
+            """,
+            [
+                symbol.upper(),
+                BarInterval.DAY_1.value,
+                PriceAdjustment.ADJUSTED.value,
+            ],
+        )
+        if provider is None:
+            return None
+        rows = self._database.fetchall(
+            """
+            SELECT session_date, close, known_available_at
+            FROM market_bars
+            WHERE provider_id=? AND symbol=? AND interval=? AND adjustment=?
+            QUALIFY ROW_NUMBER() OVER (
+                PARTITION BY session_date ORDER BY retrieved_at DESC, bar_end DESC
+            ) = 1
+            ORDER BY session_date DESC
+            LIMIT ?
+            """,
+            [
+                provider[0],
+                symbol.upper(),
+                BarInterval.DAY_1.value,
+                PriceAdjustment.ADJUSTED.value,
+                lookback_sessions,
+            ],
+        )
+        if len(rows) < 2:
+            return None
+        ordered = list(reversed(rows))
+        closes = [float(row[1]) for row in ordered]
+        start_close, end_close = closes[0], closes[-1]
+        if start_close <= 0 or min(closes) <= 0:
+            return None
+        return MarketMomentum(
+            symbol=symbol.upper(),
+            session_count=len(ordered),
+            start_session=ordered[0][0],
+            end_session=ordered[-1][0],
+            start_close=start_close,
+            end_close=end_close,
+            return_pct=((end_close / start_close) - 1.0) * 100.0,
+            range_pct=((max(closes) / min(closes)) - 1.0) * 100.0,
+            observed_at=max(row[2] for row in ordered),
+        )
 
     def outcome_closes(
         self,

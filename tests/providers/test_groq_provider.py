@@ -38,6 +38,10 @@ NOW = datetime(2026, 8, 20, 14, 0, tzinfo=UTC)
 API_KEY = "test-provider-key-that-must-never-leak"
 
 
+async def _no_sleep() -> None:
+    return None
+
+
 class FakeCredentialStore:
     @property
     def unlocked(self) -> bool:
@@ -121,8 +125,14 @@ async def test_health_and_analysis_use_vault_reference_and_strict_schema() -> No
             )
         payload = json.loads(request.content)
         assert payload["model"] == "openai/gpt-oss-120b"
+        assert "Never put opaque source IDs" in payload["messages"][0]["content"]
         assert payload["response_format"]["type"] == "json_schema"
         assert payload["response_format"]["json_schema"]["strict"] is True
+        assert (
+            payload["response_format"]["json_schema"]["schema"]["properties"]
+            ["source_ids"]["minItems"]
+            == 1
+        )
         assert API_KEY not in request.content.decode()
         return httpx.Response(200, json=successful_completion(), headers=headers)
 
@@ -268,6 +278,40 @@ async def test_authentication_failure_is_sanitized() -> None:
     assert caught.value.failure.code is ProviderErrorCode.AUTHENTICATION
     assert API_KEY not in str(caught.value)
     assert API_KEY not in caught.value.failure.model_dump_json()
+
+
+@pytest.mark.anyio
+async def test_structured_generation_400_is_retried_without_retaining_body() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(
+                400,
+                json={
+                    "error": {
+                        "type": "invalid_request_error",
+                        "message": "Generated JSON does not match the expected schema.",
+                        "failed_generation": {"attempted": "private model output"},
+                    }
+                },
+            )
+        return httpx.Response(200, json=successful_completion())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = GroqStructuredLLMProvider(
+            FakeCredentialStore(),
+            client=client,
+            retries=1,
+            sleep=lambda _: _no_sleep(),
+            now=lambda: NOW,
+        )
+        result = await provider.analyze(analysis_request(), "cred_groq")
+
+    assert calls == 2
+    assert result.items[0].ticker == "CVX"
 
 
 @pytest.mark.anyio

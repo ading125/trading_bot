@@ -25,7 +25,7 @@ from tests.test_strategy_service import BAR_START, NOW, _market_bar
 def _service(tmp_path: Path):
     database = Database(tmp_path / "investing_bot.duckdb")
     database.connect()
-    assert database.migrate() == 9
+    assert database.migrate() == 11
     market = MarketDataRepository(database, dataset_root=tmp_path / "market")
     bars = []
     for index in range(62):

@@ -279,7 +279,7 @@ class OperationsCoordinator:
         strategy_service: Any,
         outcome_service: OutcomeTrackingService,
         analysis_symbols: tuple[str, ...],
-        analysis_candidate_limit: int = 5,
+        analysis_candidate_limit: int = 10,
         strategy_symbols: tuple[str, ...],
         scheduled_actions: frozenset[ManualAction] | None = None,
         cooldown: timedelta = timedelta(seconds=30),
@@ -407,14 +407,32 @@ class OperationsCoordinator:
             symbols = self.analysis_symbols or self.candidate_service.analysis_queue(
                 limit=self.analysis_candidate_limit
             )
+            failed_symbols: list[str] = []
             for symbol in symbols:
-                result = await self.analysis_service.analyze(symbol)
-                completed += 1
-                cached += int(result.cached)
-            return (
+                try:
+                    result = await self.analysis_service.analyze(symbol)
+                    completed += 1
+                    cached += int(result.cached)
+                except Exception:
+                    failed_symbols.append(symbol)
+                    logger.exception(
+                        "company analysis failed; continuing shortlist",
+                        extra={"symbol": symbol},
+                    )
+            if failed_symbols and completed == 0:
+                raise RuntimeError(
+                    f"analysis failed for all {len(failed_symbols)} selected symbols"
+                )
+            summary = (
                 f"analysis completed for {completed} automatically selected symbols "
                 f"({cached} cached)"
             )
+            if failed_symbols:
+                summary += (
+                    f"; {len(failed_symbols)} failed "
+                    f"({', '.join(failed_symbols)})"
+                )
+            return summary
         if action is ManualAction.STRATEGIES:
             evaluations = 0
             for symbol in self.strategy_symbols:
